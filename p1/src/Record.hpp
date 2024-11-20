@@ -7,11 +7,10 @@
 #include <numeric>
 #include <cstring>
 
+#include "constants.hpp"
+
 namespace sbd
 {
-  static constexpr auto PAGE_SIZE = 200;
-  static constexpr auto RECORD_SIZE = 20;
-
   template <typename T>
   class Record
   {
@@ -69,9 +68,9 @@ namespace sbd
       {
         os << num << " ";
       }
-      os << "]";
+      os << " average: " << computeAverage(record.numbers) << " ]";
       return os;
     }
   };
-}
+} // namespace sbd
 #endif

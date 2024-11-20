@@ -1,8 +1,12 @@
-#include "Record.hpp"
+#pragma once
+
 #include <vector>
 #include <fstream>
 #include <stdexcept>
 #include <cstring>
+
+#include "Record.hpp"
+#include "constants.hpp"
 
 namespace sbd
 {
@@ -10,119 +14,132 @@ namespace sbd
   class Tape
   {
   private:
-    std::vector<Record<T>> currentPage = {};
-    std::ios_base::openmode mode;
+    std::vector<Record<T>> records;
     std::string filename;
     std::fstream file;
-    std::size_t fileSize;
-    std::size_t currentPageRecordIndex;
-    std::size_t currentPageNumber;
+    std::size_t currentRecord;
+    std::ios_base::openmode mode;
 
   public:
-    Tape(const std::string &filename, std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out | std::ios_base::binary) : filename(filename), mode(mode), currentPageRecordIndex(0), currentPageNumber(0)
+    Tape(const std::string &fname, std::ios_base::openmode mode) : filename(fname), currentRecord(0), mode(mode)
     {
-      openFile();
+      mode |= std::ios_base::binary;
+      file.open(filename, mode);
+      if (!file.is_open())
+      {
+        throw std::runtime_error("Could not open file " + filename);
+      }
       if (mode & std::ios_base::in)
       {
-        file.seekg(0, std::ios::end);
-        fileSize = file.tellg();
-        file.seekg(0, std::ios::beg);
-        readRecords();
-      }
-      else {
-        fileSize = 0;
+        readFile();
       }
     }
 
     ~Tape()
     {
-      closeFile();
-    }
-
-    void addRecord(const Record<T> &record)
-    {
-      currentPage.push_back(record);
-      currentPageRecordIndex = currentPage.size() - 1;
-      writeRecord(record);
-    }
-
-    Record<T> getCurrentRecord()
-    {
-      return currentPage[currentPageRecordIndex];
-    }
-
-    Record<T> getNextRecord()
-    {
-      auto record = getCurrentRecord();
-
-      if (currentPageNumber * PAGE_SIZE + currentPageRecordIndex * RECORD_SIZE >= fileSize)
+      if (file.is_open())
       {
-        throw std::runtime_error("No more records");
+        file.close();
       }
-
-      currentPageRecordIndex++;
-
-      return record;
     }
 
-    void closeFile()
+  private:
+    void changeMode(std::ios_base::openmode mode)
     {
-      file.close();
-    }
-
-    bool isEnd()
-    {
-      if (mode & std::ios_base::out)
+      if (mode == this->mode)
       {
-        return currentPageNumber * (PAGE_SIZE / RECORD_SIZE) + currentPageRecordIndex >= currentPage.size();
+        return;
       }
-    
-      return isEndOfFile();
+      if (file.is_open())
+      {
+        file.close();
+      }
+      file.open(filename, mode);
+      if (!file.is_open())
+      {
+        throw std::runtime_error("Could not open file " + filename);
+      }
+      this->mode = mode;
+      if (mode & std::ios_base::in)
+      {
+        readFile();
+      }
     }
 
-    bool isEndOfFile()
+    void checkReadMode()
     {
-      return currentPageNumber * PAGE_SIZE + currentPageRecordIndex * RECORD_SIZE >= fileSize;
+      if (!file.is_open() || file.rdstate() || file.eof())
+      {
+        changeMode(std::ios_base::in);
+      }
+    }
+
+    void checkWriteMode()
+    {
+      if (!file.is_open() || file.rdstate())
+      {
+        changeMode(std::ios_base::out);
+      }
+    }
+
+    void readFile()
+    {
+      checkReadMode();
+      records.clear();
+      currentRecord = 0;
+      while (!file.eof())
+      {
+        Record<T> record;
+        std::vector<char> bytes(RECORD_SIZE);
+        file.read(bytes.data(), RECORD_SIZE);
+        if (file.gcount() == 0)
+        {
+          break;
+        }
+        record.fromBytes(bytes);
+        records.push_back(record);
+      }
+    }
+
+    // void writeFile()
+    // {
+    //   checkWriteMode();
+    //   for (const auto &record : records)
+    //   {
+    //     std::vector<char> bytes = record.toBytes();
+    //     file.write(bytes.data(), bytes.size());
+    //   }
+    // }
+
+  public:
+    void write(const Record<T> &record)
+    {
+      checkWriteMode();
+      records.push_back(record);
+      std::vector<char> bytes = record.toBytes();
+      file.write(bytes.data(), bytes.size());
+    }
+
+    Record<T> read()
+    {
+      checkReadMode();
+      if (currentRecord >= records.size())
+      {
+        throw std::runtime_error("No more records to read");
+      }
+      return records[currentRecord++];
     }
 
     void reset()
     {
-      currentPageRecordIndex = 0;
-      currentPageNumber = 0;
+      checkReadMode();
+      file.clear();
+      file.seekg(0, std::ios_base::beg);
     }
 
-  private:
-    void openFile()
+    bool eof() const
     {
-      file.open(filename, mode);
-      if (!file.is_open())
-      {
-        throw std::runtime_error("Cannot open file");
-      }
-    }
-
-    void writeRecord(const Record<T> &record)
-    {
-      std::vector<char> buffer = record.toBytes();
-      file.write(buffer.data(), RECORD_SIZE);
-      fileSize += RECORD_SIZE;
-    } 
-
-    void readRecords()
-    {
-      if(!file.good())
-      {
-        throw std::runtime_error("Cannot read records");
-      }
-      currentPage.clear();
-      while(!file.eof())
-      {
-        Record<T> record;
-        std::vector<char> buffer(RECORD_SIZE);
-        file.read(buffer.data(), RECORD_SIZE);
-        record.fromBytes(buffer);
-        currentPage.push_back(record);
-      } 
+      return currentRecord >= records.size();
     }
   };
-}
+} // namespace sbd
