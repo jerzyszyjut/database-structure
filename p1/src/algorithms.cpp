@@ -6,14 +6,16 @@
 
 namespace sbd
 {
-  void createRandomTape(const std::string &filename, std::size_t numRecords)
+  int createRandomTape(const std::string &filename, std::size_t numRecords)
   {
     std::random_device rd;
     std::mt19937 gen(rd());
     gen.seed(193064); // Set a fixed seed for reproducibility
     std::uniform_int_distribution<int> dist(1, 100);
+    int numberOfSeries = 0;
 
     sbd::Tape<int> tape(filename, std::ios_base::out);
+    sbd::Record<int> previousRecord;
     for (std::size_t i = 0; i < numRecords; ++i)
     {
       std::array<int, 5> numbers;
@@ -22,15 +24,22 @@ namespace sbd
         numbers[j] = dist(gen);
       }
       sbd::Record<int> record(numbers);
+      if (previousRecord > record)
+      {
+        numberOfSeries++;
+      }
+      previousRecord = record;
       tape.write(record);
     }
+
+    return numberOfSeries;
   }
 
   void distributeBetweenTapes(sbd::Tape<int> &inputTape, sbd::Tape<int> &outputTape1, sbd::Tape<int> &outputTape2)
   {
-    inputTape.reset(std::ios_base::in);
-    outputTape1.reset(std::ios_base::out);
-    outputTape2.reset(std::ios_base::out);
+    inputTape.changeMode(std::ios_base::in);
+    outputTape1.changeMode(std::ios_base::out);
+    outputTape2.changeMode(std::ios_base::out);
 
     bool firstTape = true;
     sbd::Record<int> previousRecord;
@@ -69,9 +78,9 @@ namespace sbd
   {
     bool sorted = true;
 
-    tape1.reset(std::ios_base::in);
-    tape2.reset(std::ios_base::in);
-    outputTape.reset(std::ios_base::out);
+    tape1.changeMode(std::ios_base::in);
+    tape2.changeMode(std::ios_base::in);
+    outputTape.changeMode(std::ios_base::out);
 
     if (tape1.eof())
     {
@@ -91,35 +100,40 @@ namespace sbd
     }
 
     sbd::Record<int> previousRecord = tape1.getCurrentRecord() < tape2.getCurrentRecord() ? tape1.getCurrentRecord() : tape2.getCurrentRecord();
+    sbd::Record<int> recordToWrite;
 
     while (!tape1.eof() && !tape2.eof())
     {
       if (tape1.getCurrentRecord() > tape2.getCurrentRecord())
       {
-        outputTape.write(tape2.getNextRecord());
-        if (previousRecord > tape2.getCurrentRecord()) sorted = false;
-        previousRecord = tape2.getCurrentRecord();
+        recordToWrite = tape2.getNextRecord();
+        outputTape.write(recordToWrite);
+        if (previousRecord > recordToWrite) sorted = false;
+        previousRecord = recordToWrite;
       }
       else
       {
-        outputTape.write(tape1.getNextRecord());
-        if (previousRecord > tape1.getCurrentRecord()) sorted = false;
-        previousRecord = tape1.getCurrentRecord();
+        recordToWrite = tape1.getNextRecord();
+        outputTape.write(recordToWrite);
+        if (previousRecord > recordToWrite) sorted = false;
+        previousRecord = recordToWrite;
       }
     }
 
     while (!tape1.eof())
     {
-      outputTape.write(tape1.getNextRecord());
-      if (previousRecord > tape1.getCurrentRecord()) sorted = false;
-      previousRecord = tape1.getCurrentRecord();
+      recordToWrite = tape1.getNextRecord();
+      outputTape.write(recordToWrite);
+      if (previousRecord > recordToWrite) sorted = false;
+      previousRecord = recordToWrite;
     }
 
     while (!tape2.eof())
     {
-      outputTape.write(tape2.getNextRecord());
-      if (previousRecord > tape2.getCurrentRecord()) sorted = false;
-      previousRecord = tape2.getCurrentRecord();
+      recordToWrite = tape2.getNextRecord();
+      outputTape.write(recordToWrite);
+      if (previousRecord > recordToWrite) sorted = false;
+      previousRecord = recordToWrite;
     }
 
     return sorted;
@@ -135,10 +149,13 @@ namespace sbd
 
     sbd::Tape<int> outputTape(outputFilename, std::ios_base::out);
     bool sorted = false;
+    std::cout << outputTape << std::endl;
     while (!sorted)
     {
       sorted = merge(outputTape, tape1, tape2);
+      std::cout << outputTape << std::endl;
       distributeBetweenTapes(outputTape, tape1, tape2);
+      Counters::getInstance().incrementPhases();
     }
   }
 } // namespace sbd
