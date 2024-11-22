@@ -10,6 +10,7 @@ namespace sbd
   {
     std::random_device rd;
     std::mt19937 gen(rd());
+    gen.seed(193064); // Set a fixed seed for reproducibility
     std::uniform_int_distribution<int> dist(1, 100);
 
     sbd::Tape<int> tape(filename, std::ios_base::out);
@@ -33,9 +34,10 @@ namespace sbd
 
     bool firstTape = true;
     sbd::Record<int> previousRecord;
+
     if (!inputTape.eof())
     {
-      previousRecord = inputTape.read();
+      previousRecord = inputTape.getNextRecord();
       outputTape1.write(previousRecord);
     }
     else
@@ -45,7 +47,7 @@ namespace sbd
 
     while (!inputTape.eof())
     {
-      sbd::Record<int> record = inputTape.read();
+      sbd::Record<int> record = inputTape.getNextRecord();
       if (previousRecord > record)
       {
         firstTape = !firstTape;
@@ -59,6 +61,7 @@ namespace sbd
       {
         outputTape2.write(record);
       }
+      previousRecord = record;
     }
   }
 
@@ -74,7 +77,7 @@ namespace sbd
     {
       while (!tape2.eof())
       {
-        outputTape.write(tape2.read());
+        outputTape.write(tape2.getNextRecord());
       }
       return sorted;
     }
@@ -82,59 +85,41 @@ namespace sbd
     {
       while (!tape1.eof())
       {
-        outputTape.write(tape1.read());
+        outputTape.write(tape1.getNextRecord());
       }
       return sorted;
     }
 
-    sbd::Record<int> record1 = tape1.read();
-    sbd::Record<int> record2 = tape2.read();
-    sbd::Record<int> previousRecord = record1 < record2 ? record1 : record2;
+    sbd::Record<int> previousRecord = tape1.getCurrentRecord() < tape2.getCurrentRecord() ? tape1.getCurrentRecord() : tape2.getCurrentRecord();
 
     while (!tape1.eof() && !tape2.eof())
     {
-      if (record1 < record2)
+      if (tape1.getCurrentRecord() > tape2.getCurrentRecord())
       {
-        outputTape.write(record1);
-        if (previousRecord > record1)
-        {
-          sorted = false;
-        }
-        previousRecord = record1;
-        record1 = tape1.read();
+        outputTape.write(tape2.getNextRecord());
+        if (previousRecord > tape2.getCurrentRecord()) sorted = false;
+        previousRecord = tape2.getCurrentRecord();
       }
       else
       {
-        outputTape.write(record2);
-        if (previousRecord > record2)
-        {
-          sorted = false;
-        }
-        previousRecord = record2;
-        record2 = tape2.read();
+        outputTape.write(tape1.getNextRecord());
+        if (previousRecord > tape1.getCurrentRecord()) sorted = false;
+        previousRecord = tape1.getCurrentRecord();
       }
     }
 
     while (!tape1.eof())
     {
-      outputTape.write(record1);
-      if (previousRecord > record1)
-      {
-        sorted = false;
-      }
-      previousRecord = record1;
-      record1 = tape1.read();
+      outputTape.write(tape1.getNextRecord());
+      if (previousRecord > tape1.getCurrentRecord()) sorted = false;
+      previousRecord = tape1.getCurrentRecord();
     }
 
     while (!tape2.eof())
     {
-      outputTape.write(record2);
-      if (previousRecord > record2)
-      {
-        sorted = false;
-      }
-      previousRecord = record2;
-      record2 = tape2.read();
+      outputTape.write(tape2.getNextRecord());
+      if (previousRecord > tape2.getCurrentRecord()) sorted = false;
+      previousRecord = tape2.getCurrentRecord();
     }
 
     return sorted;

@@ -112,6 +112,24 @@ namespace sbd
     // }
 
   public:
+    Record<T> getCurrentRecord() 
+    {
+      return records[currentRecord];
+    }
+
+    Record<T> getNextRecord() 
+    {
+      checkReadMode();
+      Record<T> record = getCurrentRecord();
+      incrementRecord();
+      return record;
+    }
+
+    void incrementRecord()
+    {
+      ++currentRecord;
+    }
+
     void write(const Record<T> &record)
     {
       checkWriteMode();

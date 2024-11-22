@@ -11,7 +11,7 @@ int main()
 {
   std::string inputFilename = "input.dat";
   std::string outputFilename = "output.dat";
-  std::size_t numRecords = 5;
+  std::size_t numRecords = 20;
 
   sbd::createRandomTape(inputFilename, numRecords);
 
