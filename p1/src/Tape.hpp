@@ -31,7 +31,7 @@ namespace sbd
       }
       if (mode & std::ios_base::in)
       {
-        readFile();
+        readBlock();
       }
     }
 
@@ -46,9 +46,13 @@ namespace sbd
   private:
     void changeMode(std::ios_base::openmode mode)
     {
-      if (mode == this->mode)
+      if (this->mode == mode)
       {
         return;
+      }
+      if (records.size() > 0 && (this->mode & std::ios_base::out))
+      {
+        writeBlock();
       }
       if (file.is_open())
       {
@@ -62,24 +66,20 @@ namespace sbd
       this->mode = mode;
       if (mode & std::ios_base::in)
       {
-        readFile();
+        currentRecord = 0;
+        records.clear();
+        readBlock();
       }
     }
 
     void checkReadMode()
     {
-      if (!file.is_open() || file.rdstate() || file.eof())
-      {
-        changeMode(std::ios_base::in);
-      }
+      changeMode(std::ios_base::in);
     }
 
     void checkWriteMode()
     {
-      if (!file.is_open() || file.rdstate())
-      {
-        changeMode(std::ios_base::out);
-      }
+      changeMode(std::ios_base::out);
     }
 
     void readFile()
@@ -101,27 +101,52 @@ namespace sbd
       }
     }
 
-    // void writeFile()
-    // {
-    //   checkWriteMode();
-    //   for (const auto &record : records)
-    //   {
-    //     std::vector<char> bytes = record.toBytes();
-    //     file.write(bytes.data(), bytes.size());
-    //   }
-    // }
+    void readBlock()
+    {
+      checkReadMode();
+      records.clear();
+      currentRecord = 0;
+      std::vector<char> bytes(RECORD_SIZE * TAPE_SIZE);
+      file.read(bytes.data(), RECORD_SIZE * TAPE_SIZE);
+      std::size_t recordsCount = file.gcount() / RECORD_SIZE;
+      for (std::size_t i = 0; i < recordsCount; ++i)
+      {
+        Record<T> record;
+        record.fromBytes(std::vector<char>(bytes.begin() + i * RECORD_SIZE, bytes.begin() + (i + 1) * RECORD_SIZE));
+        records.push_back(record);
+      }
+    }
+
+    void writeBlock()
+    {
+      checkWriteMode();
+      std::vector<char> bytes;
+      for (const auto &record : records)
+      {
+        std::vector<char> recordBytes = record.toBytes();
+        bytes.insert(bytes.end(), recordBytes.begin(), recordBytes.end());
+      }
+      file.write(bytes.data(), bytes.size());
+      records.clear();
+    }
 
   public:
-    Record<T> getCurrentRecord() 
+    Record<T> getCurrentRecord()
     {
       return records[currentRecord];
     }
 
-    Record<T> getNextRecord() 
+    Record<T> getNextRecord()
     {
       checkReadMode();
       Record<T> record = getCurrentRecord();
+      // std::cout << "Reading record: " << record << std::endl;
       incrementRecord();
+      if (currentRecord >= records.size() && !file.eof())
+      {
+        readBlock();
+        // std::cout << "Reading block" << std::endl;
+      }
       return record;
     }
 
@@ -134,30 +159,29 @@ namespace sbd
     {
       checkWriteMode();
       records.push_back(record);
-      std::vector<char> bytes = record.toBytes();
-      file.write(bytes.data(), bytes.size());
-    }
-
-    Record<T> read()
-    {
-      checkReadMode();
-      if (currentRecord >= records.size())
+      // std::cout << "Writing record: " << record << std::endl;
+      if (records.size() >= TAPE_SIZE)
       {
-        throw std::runtime_error("No more records to read");
+        writeBlock();
+        // std::cout << "Writing block" << std::endl;
       }
-      return records[currentRecord++];
     }
 
-    void reset()
+    void reset(std::ios_base::openmode mode = std::ios_base::in)
     {
-      checkReadMode();
-      file.clear();
-      file.seekg(0, std::ios_base::beg);
+      if (mode & std::ios_base::in)
+      {
+        checkReadMode();
+      }
+      else
+      {
+        checkWriteMode();
+      }
     }
 
     bool eof() const
     {
-      return currentRecord >= records.size();
+      return records.size() < TAPE_SIZE && currentRecord >= records.size();
     }
   };
 } // namespace sbd

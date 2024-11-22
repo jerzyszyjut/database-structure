@@ -28,9 +28,9 @@ namespace sbd
 
   void distributeBetweenTapes(sbd::Tape<int> &inputTape, sbd::Tape<int> &outputTape1, sbd::Tape<int> &outputTape2)
   {
-    inputTape.reset();
-    outputTape1.reset();
-    outputTape2.reset();
+    inputTape.reset(std::ios_base::in);
+    outputTape1.reset(std::ios_base::out);
+    outputTape2.reset(std::ios_base::out);
 
     bool firstTape = true;
     sbd::Record<int> previousRecord;
@@ -69,9 +69,9 @@ namespace sbd
   {
     bool sorted = true;
 
-    tape1.reset();
-    tape2.reset();
-    outputTape.reset();
+    tape1.reset(std::ios_base::in);
+    tape2.reset(std::ios_base::in);
+    outputTape.reset(std::ios_base::out);
 
     if (tape1.eof())
     {

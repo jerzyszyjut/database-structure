@@ -20,7 +20,7 @@ int main()
   std::cout << "Input tape:" << std::endl;
   while (!inputTape.eof())
   {
-    sbd::Record<int> record = inputTape.read();
+    sbd::Record<int> record = inputTape.getNextRecord();
     std::cout << record << std::endl;
   }
 
@@ -31,7 +31,7 @@ int main()
   std::cout << "Sorted tape:" << std::endl;
   while (!outputTape.eof())
   {
-    sbd::Record<int> record = outputTape.read();
+    sbd::Record<int> record = outputTape.getNextRecord();
     std::cout << record << std::endl;
   }
 
