@@ -8,6 +8,7 @@ namespace sbd
 {
   int createRandomTape(const std::string &filename, std::size_t numRecords)
   {
+    Counters::getInstance().disable();
     std::random_device rd;
     std::mt19937 gen(rd());
     gen.seed(193064); // Set a fixed seed for reproducibility
@@ -32,6 +33,7 @@ namespace sbd
       tape.write(record);
     }
 
+    Counters::getInstance().enable();
     return numberOfSeries;
   }
 
@@ -157,24 +159,24 @@ namespace sbd
     sbd::Tape<int> inputTape(inputFilename, std::ios_base::in);
     sbd::Tape<int> tape1("tape1.dat", std::ios_base::out);
     sbd::Tape<int> tape2("tape2.dat", std::ios_base::out);
-    std::cout << inputTape << std::endl;
+    // std::cout << inputTape << std::endl;
     distributeBetweenTapes(inputTape, tape1, tape2);
-    std::cout << tape1 << std::endl;
-    std::cout << tape2 << std::endl;
+    // std::cout << tape1 << std::endl;
+    // std::cout << tape2 << std::endl;
 
     sbd::Tape<int> outputTape(outputFilename, std::ios_base::out);
-    std::cout << outputTape << std::endl;
+    // std::cout << outputTape << std::endl;
     bool sorted = false;
     while (true)
     {
       std::cout << "Phase " << Counters::getInstance().getPhasesCounter() << std::endl;
       sorted = merge(outputTape, tape1, tape2);
-      std::cout << outputTape << std::endl;
+      // std::cout << outputTape << std::endl;
       if (sorted)
         break;
       distributeBetweenTapes(outputTape, tape1, tape2);
-      std::cout << tape1 << std::endl;
-      std::cout << tape2 << std::endl;
+      // std::cout << tape1 << std::endl;
+      // std::cout << tape2 << std::endl;
 
       Counters::getInstance().incrementPhases();
     }

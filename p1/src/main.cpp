@@ -12,11 +12,11 @@ int main()
 {
   std::string inputFilename = "input.dat";
   std::string outputFilename = "output.dat";
-  std::size_t numRecords = sbd::RECORD_COUNT;
+  std::size_t numRecords = 1000;
 
   int numberOfSeries = sbd::createRandomTape(inputFilename, numRecords);
 
-  //sbd::Tape<int> inputTape(inputFilename, std::ios_base::in);
+  // sbd::Tape<int> inputTape(inputFilename, std::ios_base::in);
 
   // std::cout << "Input tape:" << std::endl;
   // while (!inputTape.eof())
@@ -44,7 +44,6 @@ int main()
   std::cout << "Actual number of read operations: " << sbd::Counters::getInstance().getReadCounter() << std::endl;
   std::cout << "Actual number of write operations: " << sbd::Counters::getInstance().getWriteCounter() << std::endl;
   std::cout << "Actual number of read/write operations: " << sbd::Counters::getInstance().getReadCounter() + sbd::Counters::getInstance().getWriteCounter() << std::endl;
-
 
   return 0;
 }

@@ -81,9 +81,12 @@ namespace sbd
     {
       checkReadMode();
 
-      resetRead();
+      records.clear();
+      currentRecord = 0;
+
       char buffer[BLOCK_SIZE] = {0};
       file.read(buffer, BLOCK_SIZE);
+      Counters::getInstance().incrementRead();
 
       std::size_t bytesRead = file.gcount();
       if (bytesRead == 0)
@@ -97,7 +100,6 @@ namespace sbd
       {
         Record<T> record;
         std::memcpy(&record, buffer + (i * RECORD_SIZE), RECORD_SIZE);
-        Counters::getInstance().incrementRead();
         records.push_back(record);
       }
     }
@@ -105,10 +107,9 @@ namespace sbd
     void writeBlock()
     {
       checkWriteMode();
+
       if (records.empty())
-      {
         return;
-      }
 
       char buffer[BLOCK_SIZE] = {0};
       std::size_t bufferIndex = 0;
@@ -120,12 +121,15 @@ namespace sbd
           break;
         }
         std::memcpy(buffer + bufferIndex, &record, RECORD_SIZE);
-        Counters::getInstance().incrementWrite();
         bufferIndex += RECORD_SIZE;
       }
 
       file.write(buffer, bufferIndex);
+      file.flush();
+      Counters::getInstance().incrementWrite();
+
       records.clear();
+      currentRecord = 0;
     }
 
   public:
@@ -140,6 +144,7 @@ namespace sbd
 
       mode = newMode | std::ios_base::binary;
       file.open(filename, mode);
+
       if (!file.is_open())
       {
         throw std::runtime_error("Could not open file " + filename + " in new mode");
@@ -149,20 +154,17 @@ namespace sbd
       {
         readBlock();
       }
-      if (newMode & std::ios_base::out)
-      {
-        file.clear();
-        resetRead();
-      }
     }
 
     Record<T> getCurrentRecord()
     {
       checkReadMode();
+
       if (currentRecord >= records.size())
       {
         readBlock();
       }
+
       return records[currentRecord];
     }
 
@@ -190,12 +192,13 @@ namespace sbd
 
     bool eof() const
     {
-      return currentRecord >= records.size();
+      return currentRecord >= records.size() && records.empty() && endOfFile;
     }
 
     friend std::ostream &operator<<(std::ostream &os, Tape<T> &tape)
     {
       Counters::getInstance().disable();
+      tape.resetRead();
       tape.changeMode(std::ios_base::in);
       os << "Tape: " << tape.filename << std::endl;
       os << "Mode: " << (tape.mode & std::ios_base::in ? "read" : "write") << std::endl;
