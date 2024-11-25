@@ -12,7 +12,7 @@ int main()
 {
   std::string inputFilename = "input.dat";
   std::string outputFilename = "output.dat";
-  std::size_t numRecords = 1000;
+  std::size_t numRecords = sbd::RECORD_COUNT;
 
   int numberOfSeries = sbd::createRandomTape(inputFilename, numRecords);
 

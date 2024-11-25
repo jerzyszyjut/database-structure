@@ -11,7 +11,7 @@ namespace sbd
     Counters::getInstance().disable();
     std::random_device rd;
     std::mt19937 gen(rd());
-    gen.seed(193064); // Set a fixed seed for reproducibility
+    gen.seed(1); // Set a fixed seed for reproducibility
     std::uniform_int_distribution<int> dist(1, 100);
     int numberOfSeries = 0;
 
@@ -169,7 +169,7 @@ namespace sbd
     bool sorted = false;
     while (true)
     {
-      std::cout << "Phase " << Counters::getInstance().getPhasesCounter() << std::endl;
+      // std::cout << "Phase " << Counters::getInstance().getPhasesCounter() << std::endl;
       sorted = merge(outputTape, tape1, tape2);
       // std::cout << outputTape << std::endl;
       if (sorted)
@@ -180,7 +180,7 @@ namespace sbd
 
       Counters::getInstance().incrementPhases();
     }
-    std::cout << "Sorted tape:" << std::endl;
-    std::cout << outputTape << std::endl;
+    // std::cout << "Sorted tape:" << std::endl;
+    // std::cout << outputTape << std::endl;
   }
 } // namespace sbd

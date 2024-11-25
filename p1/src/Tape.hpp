@@ -6,6 +6,7 @@
 #include <cstring>
 #include <algorithm>
 #include <iostream>
+#include <filesystem>
 
 #include "Record.hpp"
 #include "Counters.hpp"
@@ -20,47 +21,67 @@ namespace sbd
     std::vector<Record<T>> records;
     std::string filename;
     std::fstream file;
-    std::size_t currentRecord;
+    std::size_t currentRecordIndex;
     std::ios_base::openmode mode;
-    bool endOfFile;
+    std::size_t fileSize;
+    std::size_t bytesProcessed;
     static constexpr std::size_t BLOCK_SIZE = TAPE_SIZE * RECORD_SIZE;
 
   public:
     Tape(const std::string &fname, std::ios_base::openmode mode)
-        : filename(fname), currentRecord(0), mode(mode), endOfFile(false)
+        : filename(fname), currentRecordIndex(0), mode(mode), bytesProcessed(0)
     {
       mode |= std::ios_base::binary;
+      openFile();
+    }
+
+    ~Tape()
+    {
+      closeFile();
+    }
+
+    void resetRead()
+    {
+      records.clear();
+      currentRecordIndex = 0;
+      bytesProcessed = 0;
+      openFile();
+    }
+
+  private:
+    void openFile()
+    {
+      closeFile();
+
       file.open(filename, mode);
       if (!file.is_open())
       {
         throw std::runtime_error("Could not open file " + filename);
       }
 
+      bytesProcessed = 0;
+      fileSize = std::filesystem::file_size(filename);
+
       if (mode & std::ios_base::in)
       {
-        readBlock();
+        loadPage();
       }
     }
 
-    ~Tape()
+    void closeFile()
     {
       if (file.is_open())
       {
-        if (mode & std::ios_base::out)
+        if (mode & std::ios_base::out && !records.empty())
         {
-          writeBlock();
+          savePage();
         }
+        records.clear();
+        currentRecordIndex = 0;
         file.close();
       }
     }
 
-    void resetRead()
-    {
-      records.clear();
-      currentRecord = 0;
-    }
-
-  private:
     void checkReadMode()
     {
       if (!(mode & std::ios_base::in))
@@ -77,23 +98,18 @@ namespace sbd
       }
     }
 
-    void readBlock()
+    void loadPage()
     {
       checkReadMode();
-
       records.clear();
-      currentRecord = 0;
+      currentRecordIndex = 0;
 
       char buffer[BLOCK_SIZE] = {0};
       file.read(buffer, BLOCK_SIZE);
       Counters::getInstance().incrementRead();
 
       std::size_t bytesRead = file.gcount();
-      if (bytesRead == 0)
-      {
-        endOfFile = true;
-        return;
-      }
+      bytesProcessed += bytesRead;
 
       std::size_t numRecords = bytesRead / RECORD_SIZE;
       for (std::size_t i = 0; i < numRecords; ++i)
@@ -104,10 +120,9 @@ namespace sbd
       }
     }
 
-    void writeBlock()
+    void savePage()
     {
       checkWriteMode();
-
       if (records.empty())
         return;
 
@@ -125,90 +140,76 @@ namespace sbd
       }
 
       file.write(buffer, bufferIndex);
-      file.flush();
       Counters::getInstance().incrementWrite();
-
+      file.flush();
       records.clear();
-      currentRecord = 0;
+      currentRecordIndex = 0;
     }
 
   public:
     void changeMode(std::ios_base::openmode newMode)
     {
-      if (file.is_open())
-      {
-        if (mode & std::ios_base::out)
-          writeBlock();
-        file.close();
-      }
-
+      closeFile();
       mode = newMode | std::ios_base::binary;
-      file.open(filename, mode);
-
-      if (!file.is_open())
-      {
-        throw std::runtime_error("Could not open file " + filename + " in new mode");
-      }
-
-      if (newMode & std::ios_base::in)
-      {
-        readBlock();
-      }
+      openFile();
     }
 
     Record<T> getCurrentRecord()
     {
       checkReadMode();
 
-      if (currentRecord >= records.size())
+      if (currentRecordIndex >= records.size())
       {
-        readBlock();
+        if (bytesProcessed <= fileSize)
+        {
+          loadPage();
+        }
+        else
+        {
+          throw std::runtime_error("End of file reached");
+        }
       }
 
-      return records[currentRecord];
+      return records[currentRecordIndex];
     }
 
     Record<T> getNextRecord()
     {
-      checkReadMode();
-
-      if (currentRecord >= records.size())
-      {
-        readBlock();
-      }
-
-      return records[currentRecord++];
+      Record<T> record = getCurrentRecord();
+      ++currentRecordIndex;
+      return record;
     }
 
     void write(const Record<T> &record)
     {
       checkWriteMode();
       records.push_back(record);
-      if (records.size() >= TAPE_SIZE)
+      if (records.size() * RECORD_SIZE >= BLOCK_SIZE)
       {
-        writeBlock();
+        savePage();
       }
     }
 
     bool eof() const
     {
-      return currentRecord >= records.size() && records.empty() && endOfFile;
+      return bytesProcessed >= fileSize && currentRecordIndex >= records.size();
     }
 
     friend std::ostream &operator<<(std::ostream &os, Tape<T> &tape)
     {
       Counters::getInstance().disable();
-      tape.resetRead();
       tape.changeMode(std::ios_base::in);
+
       os << "Tape: " << tape.filename << std::endl;
       os << "Mode: " << (tape.mode & std::ios_base::in ? "read" : "write") << std::endl;
-      os << "Current record: " << tape.currentRecord << std::endl;
-      os << "End of file: " << (tape.endOfFile ? "yes" : "no") << std::endl;
+      os << "Current record index: " << tape.currentRecordIndex << std::endl;
       os << "Records: " << std::endl;
+
       while (!tape.eof())
       {
         os << tape.getNextRecord() << std::endl;
       }
+
       Counters::getInstance().enable();
       return os;
     }
