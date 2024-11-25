@@ -82,57 +82,70 @@ namespace sbd
     tape2.changeMode(std::ios_base::in);
     outputTape.changeMode(std::ios_base::out);
 
-    if (tape1.eof())
-    {
-      while (!tape2.eof())
-      {
-        outputTape.write(tape2.getNextRecord());
-      }
-      return sorted;
-    }
-    if (tape2.eof())
-    {
-      while (!tape1.eof())
-      {
-        outputTape.write(tape1.getNextRecord());
-      }
-      return sorted;
-    }
-
-    sbd::Record<int> previousRecord = tape1.getCurrentRecord() < tape2.getCurrentRecord() ? tape1.getCurrentRecord() : tape2.getCurrentRecord();
+    sbd::Record<int> previousRecord;
+    sbd::Record<int> record1 = tape1.getCurrentRecord(), record2 = tape2.getCurrentRecord();
     sbd::Record<int> recordToWrite;
-
     while (!tape1.eof() && !tape2.eof())
     {
-      if (tape1.getCurrentRecord() > tape2.getCurrentRecord())
+      bool hasSeriesOnTape1Ended = tape1.getCurrentRecord() < record1, hasSeriesOnTape2Ended = tape2.getCurrentRecord() < record2;
+
+      if (hasSeriesOnTape1Ended && !tape2.eof())
       {
-        recordToWrite = tape2.getNextRecord();
-        outputTape.write(recordToWrite);
-        if (previousRecord > recordToWrite) sorted = false;
-        previousRecord = recordToWrite;
+        bool flag = true;
+        sbd::Record<int> record = tape2.getCurrentRecord();
+        while (!tape2.eof() && tape2.getCurrentRecord() >= record)
+        {
+          flag = flag && tape2.getCurrentRecord() >= record;
+          record = tape2.getCurrentRecord();
+          recordToWrite = tape2.getNextRecord();
+          outputTape.write(recordToWrite);
+        }
+        sorted = sorted && flag;
       }
-      else
+
+      if (hasSeriesOnTape2Ended && !tape1.eof())
       {
-        recordToWrite = tape1.getNextRecord();
-        outputTape.write(recordToWrite);
-        if (previousRecord > recordToWrite) sorted = false;
-        previousRecord = recordToWrite;
+        bool flag = true;
+        sbd::Record<int> record = tape1.getCurrentRecord();
+        while (!tape1.eof() && tape1.getCurrentRecord() >= record)
+        {
+          flag = flag && tape1.getCurrentRecord() >= record;
+          record = tape1.getCurrentRecord();
+          recordToWrite = tape1.getNextRecord();
+          outputTape.write(recordToWrite);
+        }
+        sorted = sorted && flag;
       }
+
+      record1 = tape1.getCurrentRecord();
+      record2 = tape2.getCurrentRecord();
+      recordToWrite = record1 < record2 ? tape1.getNextRecord() : tape2.getNextRecord();
+      if (previousRecord > recordToWrite)
+        sorted = false;
+      outputTape.write(recordToWrite);
+      previousRecord = recordToWrite;
     }
+
+    if (!tape1.eof() && tape1.getCurrentRecord() < previousRecord)
+      sorted = false;
+    if (!tape2.eof() && tape2.getCurrentRecord() < previousRecord)
+      sorted = false;
 
     while (!tape1.eof())
     {
-      recordToWrite = tape1.getNextRecord();
+      recordToWrite = tape1.getCurrentRecord();
       outputTape.write(recordToWrite);
-      if (previousRecord > recordToWrite) sorted = false;
+      if (previousRecord > tape1.getNextRecord())
+        sorted = false;
       previousRecord = recordToWrite;
     }
 
     while (!tape2.eof())
     {
-      recordToWrite = tape2.getNextRecord();
+      recordToWrite = tape2.getCurrentRecord();
       outputTape.write(recordToWrite);
-      if (previousRecord > recordToWrite) sorted = false;
+      if (previousRecord > tape2.getNextRecord())
+        sorted = false;
       previousRecord = recordToWrite;
     }
 
@@ -144,18 +157,28 @@ namespace sbd
     sbd::Tape<int> inputTape(inputFilename, std::ios_base::in);
     sbd::Tape<int> tape1("tape1.dat", std::ios_base::out);
     sbd::Tape<int> tape2("tape2.dat", std::ios_base::out);
-
+    std::cout << inputTape << std::endl;
     distributeBetweenTapes(inputTape, tape1, tape2);
+    std::cout << tape1 << std::endl;
+    std::cout << tape2 << std::endl;
 
     sbd::Tape<int> outputTape(outputFilename, std::ios_base::out);
-    bool sorted = false;
     std::cout << outputTape << std::endl;
-    while (!sorted)
+    bool sorted = false;
+    while (true)
     {
+      std::cout << "Phase " << Counters::getInstance().getPhasesCounter() << std::endl;
       sorted = merge(outputTape, tape1, tape2);
       std::cout << outputTape << std::endl;
+      if (sorted)
+        break;
       distributeBetweenTapes(outputTape, tape1, tape2);
+      std::cout << tape1 << std::endl;
+      std::cout << tape2 << std::endl;
+
       Counters::getInstance().incrementPhases();
     }
+    std::cout << "Sorted tape:" << std::endl;
+    std::cout << outputTape << std::endl;
   }
 } // namespace sbd

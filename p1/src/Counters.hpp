@@ -6,37 +6,49 @@ namespace sbd
     class Counters
     {
     public:
-        // Singleton access
         static Counters &getInstance()
         {
             static Counters instance;
             return instance;
         }
 
-        // Increment methods
-        void incrementRead() { ++readCounter; }
-        void incrementWrite() { ++writeCounter; }
-        void incrementPhases() { ++phasesCounter; }
+        void incrementRead()
+        {
+            if (enabled)
+                ++readCounter;
+        }
+        void incrementWrite()
+        {
+            if (enabled)
+                ++writeCounter;
+        }
+        void incrementPhases()
+        {
+            if (enabled)
+                ++phasesCounter;
+        }
 
-        // Getter methods
         int getReadCounter() const { return readCounter; }
         int getWriteCounter() const { return writeCounter; }
         int getPhasesCounter() const { return phasesCounter; }
 
-        // Reset method
+        void disable() { enabled = false; }
+        void enable() { enabled = true; }
+
         void reset()
         {
             readCounter = 0;
             writeCounter = 0;
             phasesCounter = 0;
+            enabled = true;
         }
 
     private:
         int readCounter = 0;
         int writeCounter = 0;
         int phasesCounter = 0;
+        bool enabled = true;
 
-        // Private constructors to enforce singleton usage
         Counters() = default;
         ~Counters() = default;
         Counters(const Counters &) = delete;

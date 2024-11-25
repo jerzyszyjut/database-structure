@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <algorithm>
-#include <iostream> 
+#include <iostream>
 
 #include "Record.hpp"
 #include "Counters.hpp"
@@ -54,6 +54,12 @@ namespace sbd
       }
     }
 
+    void resetRead()
+    {
+      records.clear();
+      currentRecord = 0;
+    }
+
   private:
     void checkReadMode()
     {
@@ -74,7 +80,8 @@ namespace sbd
     void readBlock()
     {
       checkReadMode();
-      records.clear();
+
+      resetRead();
       char buffer[BLOCK_SIZE] = {0};
       file.read(buffer, BLOCK_SIZE);
 
@@ -93,8 +100,6 @@ namespace sbd
         Counters::getInstance().incrementRead();
         records.push_back(record);
       }
-
-      currentRecord = 0;
     }
 
     void writeBlock()
@@ -128,7 +133,8 @@ namespace sbd
     {
       if (file.is_open())
       {
-        if (mode & std::ios_base::out) writeBlock();
+        if (mode & std::ios_base::out)
+          writeBlock();
         file.close();
       }
 
@@ -143,6 +149,11 @@ namespace sbd
       {
         readBlock();
       }
+      if (newMode & std::ios_base::out)
+      {
+        file.clear();
+        resetRead();
+      }
     }
 
     Record<T> getCurrentRecord()
@@ -150,7 +161,7 @@ namespace sbd
       checkReadMode();
       if (currentRecord >= records.size())
       {
-        throw std::runtime_error("No current record available");
+        readBlock();
       }
       return records[currentRecord];
     }
@@ -158,27 +169,13 @@ namespace sbd
     Record<T> getNextRecord()
     {
       checkReadMode();
-      Record<T> record = records[currentRecord];
-      currentRecord++;
 
       if (currentRecord >= records.size())
       {
         readBlock();
-        if (records.empty()) 
-        {
-          endOfFile = true;
-        }
       }
-      return record;
-    }
 
-    void incrementRecord()
-    {
-      ++currentRecord;
-      if (currentRecord >= records.size() && !endOfFile)
-      {
-        readBlock();
-      }
+      return records[currentRecord++];
     }
 
     void write(const Record<T> &record)
@@ -193,11 +190,12 @@ namespace sbd
 
     bool eof() const
     {
-      return endOfFile && currentRecord >= records.size();
+      return currentRecord >= records.size();
     }
 
     friend std::ostream &operator<<(std::ostream &os, Tape<T> &tape)
     {
+      Counters::getInstance().disable();
       tape.changeMode(std::ios_base::in);
       os << "Tape: " << tape.filename << std::endl;
       os << "Mode: " << (tape.mode & std::ios_base::in ? "read" : "write") << std::endl;
@@ -208,6 +206,7 @@ namespace sbd
       {
         os << tape.getNextRecord() << std::endl;
       }
+      Counters::getInstance().enable();
       return os;
     }
   };
