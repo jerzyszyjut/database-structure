@@ -48,6 +48,18 @@ namespace sbd
       openFile();
     }
 
+    void changeFilename(const std::string &newFilename)
+    {
+      closeFile();
+      filename = newFilename;
+      openFile();
+    }
+
+    std::size_t getFileSize() const
+    {
+      return fileSize;
+    }
+
   private:
     void openFile()
     {

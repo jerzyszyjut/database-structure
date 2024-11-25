@@ -1,7 +1,11 @@
 #include <string>
 #include <random>
+
 #include "Record.hpp"
 #include "Tape.hpp"
+#include "Counters.hpp"
+#include "DebugController.hpp"
+#include "constants.hpp"
 #include "algorithms.hpp"
 
 namespace sbd
@@ -12,8 +16,7 @@ namespace sbd
     std::random_device rd;
     std::mt19937 gen(rd());
     gen.seed(1); // Set a fixed seed for reproducibility
-    std::uniform_int_distribution<int> dist(1, 100);
-    int numberOfSeries = 0;
+    std::uniform_int_distribution<int> dist(1, 10000);
 
     sbd::Tape<int> tape(filename, std::ios_base::out);
     sbd::Record<int> previousRecord;
@@ -27,14 +30,14 @@ namespace sbd
       sbd::Record<int> record(numbers);
       if (previousRecord > record)
       {
-        numberOfSeries++;
+        Counters::getInstance().incrementSeries();
       }
       previousRecord = record;
       tape.write(record);
     }
 
     Counters::getInstance().enable();
-    return numberOfSeries;
+    return Counters::getInstance().getSeriesCounter();
   }
 
   void distributeBetweenTapes(sbd::Tape<int> &inputTape, sbd::Tape<int> &outputTape1, sbd::Tape<int> &outputTape2)
@@ -154,33 +157,42 @@ namespace sbd
     return sorted;
   }
 
-  void sortTape(const std::string &inputFilename, const std::string &outputFilename)
+  void sortTape()
   {
-    sbd::Tape<int> inputTape(inputFilename, std::ios_base::in);
-    sbd::Tape<int> tape1("tape1.dat", std::ios_base::out);
-    sbd::Tape<int> tape2("tape2.dat", std::ios_base::out);
-    // std::cout << inputTape << std::endl;
-    distributeBetweenTapes(inputTape, tape1, tape2);
-    // std::cout << tape1 << std::endl;
-    // std::cout << tape2 << std::endl;
+    std::ofstream("input.dat");
+    std::ofstream("tape1.dat");
+    std::ofstream("tape2.dat");
+    std::ofstream("output.dat");
 
-    sbd::Tape<int> outputTape(outputFilename, std::ios_base::out);
-    // std::cout << outputTape << std::endl;
+    sbd::Tape<int> inputTape("input.dat", std::ios_base::in);
+    DebugController::getInstance().setInputTape(&inputTape);
+    sbd::Tape<int> tape1("tape1.dat", std::ios_base::out);
+    DebugController::getInstance().setTape1(&tape1);
+    sbd::Tape<int> tape2("tape2.dat", std::ios_base::out);
+    DebugController::getInstance().setTape2(&tape2);
+    sbd::Tape<int> outputTape("output.dat", std::ios_base::out);
+    DebugController::getInstance().setOutputTape(&outputTape);
+
+    DebugController::getInstance().enable();
+
+    DebugController::getInstance().waitForInput('s');
+
+    distributeBetweenTapes(inputTape, tape1, tape2);
+    DebugController::getInstance().waitForInput('d');
+
     bool sorted = false;
     while (true)
     {
-      // std::cout << "Phase " << Counters::getInstance().getPhasesCounter() << std::endl;
       sorted = merge(outputTape, tape1, tape2);
-      // std::cout << outputTape << std::endl;
+      DebugController::getInstance().waitForInput('m');
+
       if (sorted)
         break;
       distributeBetweenTapes(outputTape, tape1, tape2);
-      // std::cout << tape1 << std::endl;
-      // std::cout << tape2 << std::endl;
+      DebugController::getInstance().waitForInput('d');
 
       Counters::getInstance().incrementPhases();
     }
-    // std::cout << "Sorted tape:" << std::endl;
-    // std::cout << outputTape << std::endl;
+    DebugController::getInstance().waitForInput('o');
   }
 } // namespace sbd

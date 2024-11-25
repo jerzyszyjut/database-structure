@@ -14,7 +14,7 @@ namespace sbd
     int createRandomTape(const std::string &filename, std::size_t numRecords);
     void distributeBetweenTapes(Tape<int> &inputTape, Tape<int> &outputTape1, Tape<int> &outputTape2);
     bool merge(Tape<int> &outputTape, Tape<int> &tape1, Tape<int> &tape2);
-    void sortTape(const std::string &inputFilename, const std::string &outputFilename);
+    void sortTape();
 
 } // namespace sbd
 
