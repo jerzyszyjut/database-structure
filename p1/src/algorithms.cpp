@@ -183,6 +183,7 @@ namespace sbd
     bool sorted = false;
     while (true)
     {
+      Counters::getInstance().incrementPhases();
       sorted = merge(outputTape, tape1, tape2);
       DebugController::getInstance().waitForInput('m');
 
@@ -190,8 +191,6 @@ namespace sbd
         break;
       distributeBetweenTapes(outputTape, tape1, tape2);
       DebugController::getInstance().waitForInput('d');
-
-      Counters::getInstance().incrementPhases();
     }
     DebugController::getInstance().waitForInput('o');
   }
