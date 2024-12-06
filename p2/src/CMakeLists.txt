@@ -1,0 +1,1 @@
+add_executable(App main.cpp constants.hpp Node.cpp Node.hpp Tree.hpp Tree.cpp)
