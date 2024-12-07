@@ -5,7 +5,7 @@
 int main(void)
 {
   sbd::Tree tree;
-  for (auto i = 1; i < 40; ++i)
+  for (auto i = 1; i < 48; ++i)
   {
     tree.insert(i, i);
   }

@@ -96,8 +96,8 @@ namespace sbd
     sbd::Node child2 = sbd::Node();
 
     child2.isLeaf = child1.isLeaf;
-    child2.size = MIN_RECORDS;
-    for (auto i = 0; i < MIN_RECORDS; ++i)
+    child2.size = MIN_RECORDS - 1;
+    for (auto i = 0; i < child2.size; ++i)
     {
       child2.keys[i] = child1.keys[i + MIN_RECORDS + 1];
       child2.addresses[i] = child1.addresses[i + MIN_RECORDS + 1];

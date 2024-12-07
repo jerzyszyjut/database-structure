@@ -13,8 +13,8 @@ namespace sbd
   static constexpr auto RECORD_SIZE = 5 * VALUE_SIZE;
   static constexpr auto MAX_NODE_SIZE = 2 * D_SIZE * (KEY_SIZE + POINTER_SIZE) + POINTER_SIZE;
   static constexpr auto MIN_NODE_SIZE = D_SIZE * (KEY_SIZE + POINTER_SIZE) + POINTER_SIZE;
-  static constexpr auto MAX_RECORDS = 2 * D_SIZE - 1;
-  static constexpr auto MIN_RECORDS = D_SIZE - 1;
-  static constexpr auto MIN_POINTERS = D_SIZE;
-  static constexpr auto MAX_POINTERS = 2 * D_SIZE;
+  static constexpr auto MAX_RECORDS = 2 * D_SIZE;
+  static constexpr auto MIN_RECORDS = D_SIZE;
+  static constexpr auto MIN_POINTERS = MIN_RECORDS + 1;
+  static constexpr auto MAX_POINTERS = MAX_RECORDS + 1;
 } // namespace sbd
