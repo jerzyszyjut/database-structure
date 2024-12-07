@@ -2,7 +2,7 @@
 
 namespace sbd
 {
-  Node::Node() : keys(), addresses(), pointers(), size(0), isLeaf(true)
+  Node::Node() : keys(), addresses(), pointers(), size(0), isLeaf(true), parentIndex(-1)
   {
     keys.fill(-1);
     addresses.fill(-1);

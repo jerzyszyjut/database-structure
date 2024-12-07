@@ -12,6 +12,7 @@ namespace sbd
     std::array<std::int32_t, MAX_RECORDS> addresses;
     std::array<std::int32_t, MAX_POINTERS> pointers;
     std::int32_t size;
+    std::int32_t parentIndex;
     bool isLeaf;
 
     Node();

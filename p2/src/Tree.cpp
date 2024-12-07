@@ -49,6 +49,7 @@ namespace sbd
       nodes.push_back(newRoot);
       std::int32_t previousRootIndex = rootIndex;
       rootIndex = nodes.size() - 1;
+      nodes[previousRootIndex].parentIndex = rootIndex;
       splitChild(rootIndex, 0, previousRootIndex);
       insertNonFull(rootIndex, key, address);
     }
@@ -96,7 +97,9 @@ namespace sbd
     sbd::Node &main = nodes[mainIndex];
     sbd::Node &child1 = nodes[childIndex];
     sbd::Node child2 = sbd::Node();
+    std::int32_t child2Index = nodes.size();
 
+    child2.parentIndex = mainIndex;
     child2.isLeaf = child1.isLeaf;
     child2.size = MIN_RECORDS - 1;
     for (auto i = 0; i < child2.size; ++i)
@@ -110,6 +113,7 @@ namespace sbd
       for (auto i = 0; i < MIN_POINTERS; ++i)
       {
         child2.pointers[i] = child1.pointers[i + MIN_POINTERS];
+        nodes[child2.pointers[i]].parentIndex = child2Index;
       }
     }
     child1.size = MIN_RECORDS;
@@ -119,7 +123,7 @@ namespace sbd
       main.pointers[i + 1] = main.pointers[i];
     }
 
-    main.pointers[split + 1] = nodes.size();
+    main.pointers[split + 1] = child2Index;
 
     for (auto i = main.size - 1; i >= split; --i)
     {
@@ -175,6 +179,7 @@ namespace sbd
         }
       }
     }
+    // file << "\"node" << nodeIndex << "\"" << " -> \"node" << node.parentIndex << "\"" << std::endl;
   }
 
 } // namespace sbd
