@@ -16,6 +16,8 @@ namespace sbd
 
   std::int32_t Tree::search(std::int32_t key)
   {
+    if (nodes[rootIndex].size == 0)
+      return -1;
     return search(rootIndex, key);
   }
 
