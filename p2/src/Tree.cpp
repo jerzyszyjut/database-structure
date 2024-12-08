@@ -1,6 +1,7 @@
 #include "Tree.hpp"
 #include "Node.hpp"
 #include <string>
+#include <algorithm>
 
 namespace sbd
 {
@@ -26,116 +27,213 @@ namespace sbd
     std::int32_t i = 0;
     sbd::Node &node = nodes[nodeIndex];
 
-    while (i < node.size && key > node.keys[i])
+    while (i < node.size && key > node.getKey(i))
       ++i;
 
-    if (i < node.size && key == node.keys[i])
-      return node.addresses[i];
+    if (i < node.size && key == node.getKey(i))
+      return node.getAddress(i);
     else if (node.isLeaf)
       return -1;
     else
-      return search(node.pointers[i], key);
+      return search(node.getPointer(i), key);
   }
 
-  void Tree::insert(std::int32_t key, std::int32_t address)
+  std::int32_t Tree::insert(std::int32_t key, std::int32_t address)
   {
-    sbd::Node &root = nodes[rootIndex];
-    if (root.size == MAX_RECORDS)
-    {
-      sbd::Node newRoot = sbd::Node();
-      newRoot.isLeaf = false;
-      newRoot.size = 0;
-      newRoot.pointers[0] = rootIndex;
-      nodes.push_back(newRoot);
-      std::int32_t previousRootIndex = rootIndex;
-      rootIndex = nodes.size() - 1;
-      nodes[previousRootIndex].parentIndex = rootIndex;
-      splitChild(rootIndex, 0, previousRootIndex);
-      insertNonFull(rootIndex, key, address);
-    }
-    else
-    {
-      insertNonFull(rootIndex, key, address);
-    }
+    return insert(rootIndex, key, address);
   }
 
-  void Tree::insertNonFull(std::int32_t nodeIndex, std::int32_t key, std::int32_t address)
+  std::int32_t Tree::insert(std::int32_t nodeIndex, std::int32_t key, std::int32_t address)
   {
     sbd::Node &node = nodes[nodeIndex];
-    std::int32_t i = node.size - 1;
+    std::int32_t i = 0;
+
+    while (i < node.size && key > node.getKey(i))
+    {
+      ++i;
+      if (i < node.size && key == node.getKey(i))
+        return ALREADY_EXISTS;
+    }
 
     if (node.isLeaf)
     {
-      while (i >= 0 && key < node.keys[i])
+      if (node.size < MAX_RECORDS)
       {
-        node.keys[i + 1] = node.keys[i];
-        node.addresses[i + 1] = node.addresses[i];
-        --i;
+        node.size++;
+        for (auto j = node.size - 1; j > i; --j)
+        {
+          node.setRecord(node.getRecord(j - 1), j);
+        }
+        node.setRecord(std::make_tuple(key, address), i);
       }
-      node.keys[i + 1] = key;
-      node.addresses[i + 1] = address;
-      node.size++;
+
+      if (node.size >= MAX_RECORDS)
+      {
+        bool compensated = tryCompensate(nodeIndex, key);
+        if (!compensated)
+          split(nodeIndex);
+      }
+      return OK;
     }
     else
     {
-      while (i >= 0 && key < node.keys[i])
-        --i;
-
-      ++i;
-      if (nodes[node.pointers[i]].size == MAX_RECORDS)
-      {
-        splitChild(nodeIndex, i, node.pointers[i]);
-        if (key > node.keys[i])
-          ++i;
-      }
-      insertNonFull(node.pointers[i], key, address);
+      std::int32_t childIndex = node.getPointer(i);
+      return insert(childIndex, key, address);
     }
   }
 
-  void Tree::splitChild(std::int32_t mainIndex, std::int32_t split, std::int32_t childIndex)
+  bool Tree::tryCompensate(std::int32_t mainIndex, std::int32_t key)
   {
     sbd::Node &main = nodes[mainIndex];
-    sbd::Node &child1 = nodes[childIndex];
-    sbd::Node child2 = sbd::Node();
-    std::int32_t child2Index = nodes.size();
+    if (main.parentIndex == -1)
+      return false;
 
-    child2.parentIndex = mainIndex;
-    child2.isLeaf = child1.isLeaf;
-    child2.size = MIN_RECORDS - 1;
-    for (auto i = 0; i < child2.size; ++i)
-    {
-      child2.keys[i] = child1.keys[i + MIN_RECORDS + 1];
-      child2.addresses[i] = child1.addresses[i + MIN_RECORDS + 1];
-    }
+    sbd::Node &parent = nodes[main.parentIndex];
 
-    if (!child1.isLeaf)
+    std::int32_t i = 1;
+    while (i < parent.size && key > parent.getKey(i))
+      ++i;
+
+    std::int32_t leftNeighborIndex = (i > 0) ? parent.getPointer(i - 1) : -1;
+    std::int32_t rightNeighborIndex = (i <= parent.size) ? parent.getPointer(i) : -1;
+    leftNeighborIndex = (leftNeighborIndex != -1 && nodes[leftNeighborIndex].size < MAX_RECORDS - 1) ? leftNeighborIndex : -1;
+    rightNeighborIndex = (rightNeighborIndex != -1 && nodes[rightNeighborIndex].size < MAX_RECORDS - 1) ? rightNeighborIndex : -1;
+
+    if (leftNeighborIndex != -1 || rightNeighborIndex != -1)
     {
-      for (auto i = 0; i < MIN_POINTERS; ++i)
+      sbd::Node &neighbor = (leftNeighborIndex != -1) ? nodes[leftNeighborIndex] : nodes[rightNeighborIndex];
+
+      std::array<std::tuple<std::int32_t, std::int32_t>, MAX_RECORDS * 2> allRecords;
+      std::array<std::int32_t, MAX_POINTERS * 2> allPointers;
+      std::int32_t allSize = 0;
+
+      for (auto j = 0; j < neighbor.size; ++j)
       {
-        child2.pointers[i] = child1.pointers[i + MIN_POINTERS];
-        nodes[child2.pointers[i]].parentIndex = child2Index;
+        allRecords[allSize] = neighbor.getRecord(j);
+        allPointers[allSize] = neighbor.getPointer(j);
+        allSize++;
+      }
+      allPointers[allSize] = neighbor.getPointer(neighbor.size);
+
+      allRecords[allSize] = parent.getRecord(i - 1);
+      allSize++;
+
+      for (auto j = 0; j < main.size; ++j)
+      {
+        allRecords[allSize] = main.getRecord(j);
+        allPointers[allSize] = main.getPointer(j);
+        allSize++;
+      }
+      std::sort(allRecords.begin(), allRecords.begin() + allSize, [](std::tuple<std::int32_t, std::int32_t> a, std::tuple<std::int32_t, std::int32_t> b)
+                { return std::get<0>(a) < std::get<0>(b); });
+
+      allPointers[allSize] = main.getPointer(main.size);
+
+      std::int32_t split = allSize / 2;
+
+      leftNeighborIndex = (leftNeighborIndex != -1) ? leftNeighborIndex : mainIndex;
+      rightNeighborIndex = (rightNeighborIndex != -1) ? rightNeighborIndex : mainIndex;
+      sbd::Node &left = nodes[leftNeighborIndex];
+      sbd::Node &right = nodes[rightNeighborIndex];
+
+      left.size = 0;
+      for (auto j = 0; j < split; ++j)
+      {
+        left.size++;
+        left.setRecord(allRecords[j], j);
+        left.setPointer(allPointers[j], j);
+      }
+      left.setPointer(allPointers[split], left.size);
+
+      parent.setRecord(allRecords[split], i - 1);
+      // parent.setPointer(leftNeighborIndex, i - 1);
+      // parent.setPointer(rightNeighborIndex, i);
+
+      right.size = 0;
+      for (auto j = split + 1; j < allSize; ++j)
+      {
+        right.size++;
+        right.setRecord(allRecords[j], right.size - 1);
+        right.setPointer(allPointers[j], right.size - 1);
+      }
+      right.setPointer(allPointers[allSize], right.size);
+
+      return true;
+    }
+    return false;
+  }
+
+  void Tree::split(std::int32_t nodeIndex)
+  {
+    sbd::Node &node = nodes[nodeIndex];
+    std::int32_t midIndex = node.size / 2;
+
+    sbd::Node newNode;
+    newNode.isLeaf = node.isLeaf;
+    newNode.parentIndex = node.parentIndex;
+
+    for (std::int32_t i = midIndex + 1, j = 0; i < node.size; ++i, ++j)
+    {
+      newNode.size++;
+      newNode.setRecord(node.getRecord(i), j);
+      if (!node.isLeaf)
+      {
+        newNode.setPointer(node.getPointer(i), j);
+        nodes[node.getPointer(i)].parentIndex = nodes.size();
       }
     }
-    child1.size = MIN_RECORDS;
 
-    for (auto i = main.size; i > split; --i)
+    if (!node.isLeaf)
     {
-      main.pointers[i + 1] = main.pointers[i];
+      newNode.setPointer(node.getPointer(node.size), newNode.size);
+      nodes[node.getPointer(node.size)].parentIndex = nodes.size();
     }
 
-    main.pointers[split + 1] = child2Index;
+    node.size = midIndex;
 
-    for (auto i = main.size - 1; i >= split; --i)
+    nodes.push_back(newNode);
+    std::int32_t newNodeIndex = nodes.size() - 1;
+    node = nodes[nodeIndex];
+
+    if (node.parentIndex == -1)
     {
-      main.keys[i + 1] = main.keys[i];
-      main.addresses[i + 1] = main.addresses[i];
+      sbd::Node newRoot;
+      newRoot.isLeaf = false;
+      newRoot.size = 1;
+      newRoot.setRecord(node.getRecord(midIndex), 0);
+      newRoot.setPointer(nodeIndex, 0);
+      newRoot.setPointer(newNodeIndex, 1);
+
+      nodes[nodeIndex].parentIndex = nodes.size();
+      nodes[newNodeIndex].parentIndex = nodes.size();
+
+      nodes.push_back(newRoot);
+      rootIndex = nodes.size() - 1;
     }
+    else
+    {
+      sbd::Node &parent = nodes[node.parentIndex];
+      std::int32_t i = 0;
 
-    main.keys[split] = child1.keys[MIN_RECORDS];
-    main.addresses[split] = child1.addresses[MIN_RECORDS];
-    main.size++;
+      while (i < parent.size && node.getKey(midIndex) > parent.getKey(i))
+        ++i;
 
-    nodes.push_back(child2);
+      parent.size++;
+      for (std::int32_t j = parent.size - 1; j > i; --j)
+      {
+        parent.setRecord(parent.getRecord(j - 1), j);
+        parent.setPointer(parent.getPointer(j), j + 1);
+      }
+      parent.setRecord(node.getRecord(midIndex), i);
+      parent.setPointer(newNodeIndex, i + 1);
+
+      if (parent.size >= MAX_RECORDS)
+      {
+        bool compensated = tryCompensate(node.parentIndex, parent.getKey(i));
+        if (!compensated)
+          split(node.parentIndex);
+      }
+    }
   }
 
   void Tree::createDotFile(std::string filename)
@@ -150,7 +248,7 @@ namespace sbd
       file << "node" << i << "[label=\"";
       for (auto i = 0; i < node.size; ++i)
       {
-        file << "<f" << i << "> |" << node.keys[i] << "| ";
+        file << "<f" << i << "> |" << node.getKey(i) << "| ";
       }
       file << "<f" << node.size << ">\"";
       if (node.isLeaf)
@@ -172,10 +270,10 @@ namespace sbd
     {
       for (auto i = 0; i <= node.size; ++i)
       {
-        if (node.pointers[i] != -1)
+        if (node.getPointer(i) != -1)
         {
-          file << "\"node" << nodeIndex << "\":f" << i << " -> \"node" << node.pointers[i] << "\"" << std::endl;
-          createDotFile(file, node.pointers[i]);
+          file << "\"node" << nodeIndex << "\":f" << i << " -> \"node" << node.getPointer(i) << "\"" << std::endl;
+          createDotFile(file, node.getPointer(i));
         }
       }
     }
