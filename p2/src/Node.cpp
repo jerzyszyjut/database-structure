@@ -20,6 +20,9 @@ namespace sbd
   {
     if (index >= size || index < 0)
       throw std::runtime_error("Index out of bounds");
+    if (std::get<0>(records[index]) == key)
+      return;
+    dirty = true;
     records[index] = std::make_tuple(key, std::get<1>(records[index]));
   }
 
@@ -27,6 +30,9 @@ namespace sbd
   {
     if (index >= size || index < 0)
       throw std::runtime_error("Index out of bounds");
+    if (std::get<1>(records[index]) == address)
+      return;
+    dirty = true;
     records[index] = std::make_tuple(std::get<0>(records[index]), address);
   }
 
@@ -34,6 +40,9 @@ namespace sbd
   {
     if (index >= size + 1 || index < 0)
       throw std::runtime_error("Index out of bounds");
+    if (pointers[index] == pointer)
+      return;
+    dirty = true;
     pointers[index] = pointer;
   }
 
@@ -41,7 +50,60 @@ namespace sbd
   {
     if (index >= size || index < 0)
       throw std::runtime_error("Index out of bounds");
+    if (records[index] == record)
+      return;
+    dirty = true;
     records[index] = record;
+  }
+
+  void Node::setId(std::int32_t id)
+  {
+    if (this->id != -1)
+      throw std::runtime_error("Id already set");
+    if (id < 0)
+      throw std::runtime_error("Id must be positive");
+    if (this->id == id)
+      return;
+    dirty = true;
+    this->id = id;
+  }
+
+  void Node::setSize(std::int32_t size)
+  {
+    if (size > MAX_RECORDS || size < 0)
+      throw std::runtime_error("Size out of bounds");
+    if (this->size == size)
+      return;
+    dirty = true;
+    this->size = size;
+  }
+
+  void Node::setParentIndex(std::int32_t parentIndex)
+  {
+    if (parentIndex < -1)
+      throw std::runtime_error("Parent index must be positive");
+    if (this->parentIndex == parentIndex)
+      return;
+    dirty = true;
+    this->parentIndex = parentIndex;
+  }
+
+  void Node::setIsLeaf(bool isLeaf)
+  {
+    if (this->isLeaf == isLeaf)
+      return;
+    dirty = true;
+    this->isLeaf = isLeaf;
+  }
+
+  void Node::dirtyNode()
+  {
+    dirty = true;
+  }
+
+  void Node::cleanNode()
+  {
+    dirty = false;
   }
 
   std::int32_t Node::getKey(std::int32_t index)
@@ -65,6 +127,16 @@ namespace sbd
     return pointers[index];
   }
 
+  std::int32_t Node::getSize()
+  {
+    return std::int32_t();
+  }
+
+  std::int32_t Node::getParentIndex()
+  {
+    return std::int32_t();
+  }
+
   std::tuple<std::int32_t, std::int32_t> Node::getRecord(std::int32_t index)
   {
     if (index >= MAX_RECORDS || index < 0)
@@ -72,7 +144,22 @@ namespace sbd
     return records[index];
   }
 
-  Node::Node(const Node &other) : pointers(other.pointers), size(other.size), isLeaf(other.isLeaf), parentIndex(other.parentIndex), records(other.records)
+  std::int32_t Node::getId()
+  {
+    return this->id;
+  }
+
+  bool Node::getIsLeaf()
+  {
+    return isLeaf;
+  }
+
+  bool Node::isDirty()
+  {
+    return dirty;
+  }
+
+  Node::Node(const Node &other) : pointers(other.pointers), size(other.size), isLeaf(other.isLeaf), parentIndex(other.parentIndex), records(other.records), id(other.id)
   {
   }
 
@@ -80,6 +167,7 @@ namespace sbd
   {
     if (this == &other)
       return *this;
+    id = other.id;
     pointers = other.pointers;
     size = other.size;
     isLeaf = other.isLeaf;
@@ -98,6 +186,7 @@ namespace sbd
       parentIndex = other.parentIndex;
       records = std::move(other.records);
 
+      id = other.id;
       other.size = 0;
       other.isLeaf = true;
       other.parentIndex = -1;
