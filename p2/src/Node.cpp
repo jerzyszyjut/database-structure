@@ -129,12 +129,12 @@ namespace sbd
 
   std::int32_t Node::getSize()
   {
-    return std::int32_t();
+    return size;
   }
 
   std::int32_t Node::getParentIndex()
   {
-    return std::int32_t();
+    return parentIndex;
   }
 
   std::tuple<std::int32_t, std::int32_t> Node::getRecord(std::int32_t index)
