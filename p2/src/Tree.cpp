@@ -7,7 +7,9 @@ namespace sbd
   Tree::Tree() : nodes(), rootIndex(0)
   {
     nodes.push_back(sbd::Node());
-    nodes[rootIndex].isLeaf = true;
+    getNode(rootIndex).parentIndex = -1;
+    getNode(rootIndex).size = 0;
+    getNode(rootIndex).isLeaf = true;
   }
 
   Tree::~Tree()
@@ -16,7 +18,7 @@ namespace sbd
 
   std::int32_t Tree::search(std::int32_t key)
   {
-    if (nodes[rootIndex].size == 0)
+    if (getNode(rootIndex).size == 0)
       return -1;
     return search(rootIndex, key);
   }
@@ -24,7 +26,7 @@ namespace sbd
   std::int32_t Tree::search(std::int32_t nodeIndex, std::int32_t key)
   {
     std::int32_t i = 0;
-    sbd::Node &node = nodes[nodeIndex];
+    sbd::Node &node = getNode(nodeIndex);
 
     while (i < node.size && key > node.getKey(i))
       ++i;
@@ -44,7 +46,7 @@ namespace sbd
 
   std::int32_t Tree::insert(std::int32_t nodeIndex, std::int32_t key, std::int32_t address)
   {
-    sbd::Node &node = nodes[nodeIndex];
+    sbd::Node &node = getNode(nodeIndex);
     std::int32_t i = 0;
 
     while (i < node.size && key > node.getKey(i))
@@ -83,11 +85,12 @@ namespace sbd
 
   bool Tree::tryCompensate(std::int32_t mainIndex, std::int32_t key)
   {
-    sbd::Node &main = nodes[mainIndex];
+    sbd::Node &main = getNode(mainIndex);
+
     if (main.parentIndex == -1)
       return false;
 
-    sbd::Node &parent = nodes[main.parentIndex];
+    sbd::Node &parent = getNode(main.parentIndex);
 
     std::int32_t i = 1;
     while (i < parent.size && key > parent.getKey(i))
@@ -95,8 +98,8 @@ namespace sbd
 
     std::int32_t leftNeighborIndex = (i > 0) ? parent.getPointer(i - 1) : -1;
     std::int32_t rightNeighborIndex = (i <= parent.size) ? parent.getPointer(i) : -1;
-    leftNeighborIndex = (leftNeighborIndex != -1 && nodes[leftNeighborIndex].size < MAX_RECORDS - 1) ? leftNeighborIndex : -1;
-    rightNeighborIndex = (rightNeighborIndex != -1 && nodes[rightNeighborIndex].size < MAX_RECORDS - 1) ? rightNeighborIndex : -1;
+    leftNeighborIndex = (leftNeighborIndex != -1 && getNode(leftNeighborIndex).size < MAX_RECORDS - 1) ? leftNeighborIndex : -1;
+    rightNeighborIndex = (rightNeighborIndex != -1 && getNode(rightNeighborIndex).size < MAX_RECORDS - 1) ? rightNeighborIndex : -1;
 
     if (leftNeighborIndex != -1 || rightNeighborIndex != -1)
     {
@@ -164,7 +167,7 @@ namespace sbd
 
   void Tree::split(std::int32_t nodeIndex)
   {
-    sbd::Node &node = nodes[nodeIndex];
+    sbd::Node node = getNode(nodeIndex);
     std::int32_t midIndex = node.size / 2;
 
     sbd::Node newNode;
@@ -178,21 +181,21 @@ namespace sbd
       if (!node.isLeaf)
       {
         newNode.setPointer(node.getPointer(i), j);
-        nodes[node.getPointer(i)].parentIndex = nodes.size();
+        getNode(node.getPointer(i)).parentIndex = nodes.size();
       }
     }
 
     if (!node.isLeaf)
     {
       newNode.setPointer(node.getPointer(node.size), newNode.size);
-      nodes[node.getPointer(node.size)].parentIndex = nodes.size();
+      getNode(node.getPointer(node.size)).parentIndex = nodes.size();
     }
 
     node.size = midIndex;
 
+    nodes[nodeIndex] = node;
     nodes.push_back(newNode);
     std::int32_t newNodeIndex = nodes.size() - 1;
-    node = nodes[nodeIndex];
 
     if (node.parentIndex == -1)
     {
@@ -203,15 +206,15 @@ namespace sbd
       newRoot.setPointer(nodeIndex, 0);
       newRoot.setPointer(newNodeIndex, 1);
 
-      nodes[nodeIndex].parentIndex = nodes.size();
-      nodes[newNodeIndex].parentIndex = nodes.size();
+      getNode(nodeIndex).parentIndex = nodes.size();
+      getNode(newNodeIndex).parentIndex = nodes.size();
 
       nodes.push_back(newRoot);
       rootIndex = nodes.size() - 1;
     }
     else
     {
-      sbd::Node &parent = nodes[node.parentIndex];
+      sbd::Node parent = getNode(node.parentIndex);
       std::int32_t i = 0;
 
       while (i < parent.size && node.getKey(midIndex) > parent.getKey(i))
@@ -226,6 +229,8 @@ namespace sbd
       parent.setRecord(node.getRecord(midIndex), i);
       parent.setPointer(newNodeIndex, i + 1);
 
+      nodes[node.parentIndex] = parent;
+
       if (parent.size >= MAX_RECORDS)
       {
         bool compensated = tryCompensate(node.parentIndex, parent.getKey(i));
@@ -233,6 +238,13 @@ namespace sbd
           split(node.parentIndex);
       }
     }
+  }
+
+  sbd::Node &Tree::getNode(std::int32_t index)
+  {
+    if (index >= nodes.size() || index < 0)
+      throw std::runtime_error("Index out of bounds");
+    return nodes[index];
   }
 
   void Tree::createDotFile(std::string filename)
@@ -243,7 +255,7 @@ namespace sbd
 
     for (auto i = 0; i < nodes.size(); ++i)
     {
-      auto &node = nodes[i];
+      auto &node = getNode(i);
       file << "node" << i << "[label=\"";
       for (auto i = 0; i < node.size; ++i)
       {
@@ -268,7 +280,7 @@ namespace sbd
 
   void Tree::createDotFile(std::ofstream &file, std::int32_t nodeIndex)
   {
-    auto &node = nodes[nodeIndex];
+    auto &node = getNode(nodeIndex);
     if (!node.isLeaf)
     {
       for (auto i = 0; i <= node.size; ++i)

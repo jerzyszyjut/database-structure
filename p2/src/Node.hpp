@@ -27,9 +27,8 @@ namespace sbd
     std::int32_t getAddress(std::int32_t index);
     std::int32_t getPointer(std::int32_t index);
     std::tuple<std::int32_t, std::int32_t> getRecord(std::int32_t index);
-    // Node &operator=(const Node &other);
-    // Node(const Node &other);
-    // Node &operator=(Node &&other);
-    // Node(Node &&other);
+    Node(const Node &other);
+    Node &operator=(const Node &other);
+    Node &operator=(Node &&other);
   };
 } // namespace sbd
