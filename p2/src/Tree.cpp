@@ -1,7 +1,6 @@
 #include "Tree.hpp"
 #include "Node.hpp"
 #include <string>
-#include <algorithm>
 
 namespace sbd
 {
@@ -102,39 +101,39 @@ namespace sbd
     if (leftNeighborIndex != -1 || rightNeighborIndex != -1)
     {
       sbd::Node &neighbor = (leftNeighborIndex != -1) ? nodes[leftNeighborIndex] : nodes[rightNeighborIndex];
+      sbd::Node &left = (leftNeighborIndex != -1) ? nodes[leftNeighborIndex] : main;
+      sbd::Node &right = (leftNeighborIndex != -1) ? main : nodes[rightNeighborIndex];
 
       std::array<std::tuple<std::int32_t, std::int32_t>, MAX_RECORDS * 2> allRecords;
       std::array<std::int32_t, MAX_POINTERS * 2> allPointers;
       std::int32_t allSize = 0;
 
-      for (auto j = 0; j < neighbor.size; ++j)
+      for (auto j = 0; j < left.size; ++j)
       {
-        allRecords[allSize] = neighbor.getRecord(j);
-        allPointers[allSize] = neighbor.getPointer(j);
+        allRecords[allSize] = left.getRecord(j);
+        allPointers[allSize] = left.getPointer(j);
         allSize++;
       }
-      allPointers[allSize] = neighbor.getPointer(neighbor.size);
+      allPointers[allSize] = left.getPointer(left.size);
 
       allRecords[allSize] = parent.getRecord(i - 1);
       allSize++;
 
-      for (auto j = 0; j < main.size; ++j)
+      for (auto j = 0; j < right.size; ++j)
       {
-        allRecords[allSize] = main.getRecord(j);
-        allPointers[allSize] = main.getPointer(j);
+        allRecords[allSize] = right.getRecord(j);
+        allPointers[allSize] = right.getPointer(j);
         allSize++;
       }
-      std::sort(allRecords.begin(), allRecords.begin() + allSize, [](std::tuple<std::int32_t, std::int32_t> a, std::tuple<std::int32_t, std::int32_t> b)
-                { return std::get<0>(a) < std::get<0>(b); });
 
-      allPointers[allSize] = main.getPointer(main.size);
+      allPointers[allSize] = right.getPointer(right.size);
 
       std::int32_t split = allSize / 2;
 
-      leftNeighborIndex = (leftNeighborIndex != -1) ? leftNeighborIndex : mainIndex;
-      rightNeighborIndex = (rightNeighborIndex != -1) ? rightNeighborIndex : mainIndex;
-      sbd::Node &left = nodes[leftNeighborIndex];
-      sbd::Node &right = nodes[rightNeighborIndex];
+      // leftNeighborIndex = (leftNeighborIndex != -1) ? leftNeighborIndex : mainIndex;
+      // rightNeighborIndex = (rightNeighborIndex != -1) ? rightNeighborIndex : mainIndex;
+      // sbd::Node &left = nodes[leftNeighborIndex];
+      // sbd::Node &right = nodes[rightNeighborIndex];
 
       left.size = 0;
       for (auto j = 0; j < split; ++j)

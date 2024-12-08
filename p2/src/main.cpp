@@ -1,18 +1,24 @@
 #include "Tree.hpp"
 #include <iostream>
 #include <string>
+#include <random>
 
-#define COUNT 10
+#define COUNT 30
 
 int main(void)
 {
   sbd::Tree tree;
-  std::array<std::int32_t, COUNT> numbers = {
-      53, 30, 14, 3, 7, 20, 27, 40, 35, 45};
-  // for (auto i = 0; i < COUNT; ++i)
-  // {
-  //   numbers[i] = i;
-  // }
+  std::array<std::int32_t, COUNT> numbers;
+  // std::random_device rd;
+  // std::mt19937 gen(rd());
+  // gen.seed(1);
+  // std::uniform_int_distribution<> dis(1, 100);
+
+  for (auto i = 0; i < COUNT; ++i)
+  {
+    // numbers[i] = dis(gen);
+    numbers[i] = i;
+  }
 
   for (auto i = COUNT - 1; i > 0; --i)
   {
