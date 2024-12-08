@@ -254,6 +254,10 @@ namespace sbd
       {
         file << ", style=filled, fillcolor=lightblue";
       }
+      if (node.parentIndex == -1)
+      {
+        file << ", style=filled, fillcolor=lightgreen";
+      }
       file << "];" << std::endl;
     }
 
