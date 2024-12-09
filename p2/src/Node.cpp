@@ -1,5 +1,6 @@
 #include "Node.hpp"
 #include <stdexcept>
+#include <cstring>
 
 namespace sbd
 {
@@ -16,7 +17,7 @@ namespace sbd
   {
   }
 
-  void Node::setKey(std::int32_t key, std::int32_t index)
+  void Node::setKey(float key, std::int32_t index)
   {
     if (index >= size || index < 0)
       throw std::runtime_error("Index out of bounds");
@@ -46,7 +47,7 @@ namespace sbd
     pointers[index] = pointer;
   }
 
-  void Node::setRecord(std::tuple<std::int32_t, std::int32_t> record, std::int32_t index)
+  void Node::setRecord(std::tuple<float, std::int32_t> record, std::int32_t index)
   {
     if (index >= size || index < 0)
       throw std::runtime_error("Index out of bounds");
@@ -66,6 +67,12 @@ namespace sbd
       return;
     dirty = true;
     this->id = id;
+  }
+
+  void Node::setId(std::int32_t id, bool dirty)
+  {
+    setId(id);
+    this->dirty = dirty;
   }
 
   void Node::setSize(std::int32_t size)
@@ -106,7 +113,7 @@ namespace sbd
     dirty = false;
   }
 
-  std::int32_t Node::getKey(std::int32_t index)
+  float Node::getKey(std::int32_t index)
   {
     if (index >= MAX_RECORDS || index < 0)
       throw std::runtime_error("Index out of bounds");
@@ -137,7 +144,7 @@ namespace sbd
     return parentIndex;
   }
 
-  std::tuple<std::int32_t, std::int32_t> Node::getRecord(std::int32_t index)
+  std::tuple<float, std::int32_t> Node::getRecord(std::int32_t index)
   {
     if (index >= MAX_RECORDS || index < 0)
       throw std::runtime_error("Index out of bounds");
@@ -147,6 +154,59 @@ namespace sbd
   std::int32_t Node::getId()
   {
     return this->id;
+  }
+
+  std::array<char, NODE_SIZE> Node::toBytes()
+  {
+    std::array<char, NODE_SIZE> bytes;
+    std::size_t offset = 0;
+    std::memcpy(bytes.data() + offset, &size, sizeof(size));
+    offset += sizeof(size);
+    std::memcpy(bytes.data() + offset, &parentIndex, sizeof(parentIndex));
+    offset += sizeof(parentIndex);
+    std::memcpy(bytes.data() + offset, &isLeaf, sizeof(isLeaf));
+    offset += sizeof(isLeaf);
+    for (std::int32_t i = 0; i < MAX_RECORDS; ++i)
+    {
+      auto &record = records[i];
+      std::memcpy(bytes.data() + offset, &std::get<0>(record), sizeof(std::get<0>(record)));
+      offset += sizeof(std::get<0>(record));
+      std::memcpy(bytes.data() + offset, &std::get<1>(record), sizeof(std::get<1>(record)));
+      offset += sizeof(std::get<1>(record));
+    }
+    for (std::int32_t i = 0; i < MAX_POINTERS; ++i)
+    {
+      std::memcpy(bytes.data() + offset, &pointers[i], sizeof(pointers[i]));
+      offset += sizeof(pointers[i]);
+    }
+    return bytes;
+  }
+
+  void Node::fromBytes(std::array<char, NODE_SIZE> bytes)
+  {
+    std::size_t offset = 0;
+    std::memcpy(&size, bytes.data() + offset, sizeof(size));
+    offset += sizeof(size);
+    std::memcpy(&parentIndex, bytes.data() + offset, sizeof(parentIndex));
+    offset += sizeof(parentIndex);
+    std::memcpy(&isLeaf, bytes.data() + offset, sizeof(isLeaf));
+    offset += sizeof(isLeaf);
+    for (std::int32_t i = 0; i < MAX_RECORDS; ++i)
+    {
+      float key;
+      std::int32_t address;
+      std::memcpy(&key, bytes.data() + offset, sizeof(key));
+      offset += sizeof(key);
+      std::memcpy(&address, bytes.data() + offset, sizeof(address));
+      offset += sizeof(address);
+      std::tuple<float, std::int32_t> record = std::make_tuple(key, address);
+      records[i] = record;
+    }
+    for (std::int32_t i = 0; i < MAX_POINTERS; ++i)
+    {
+      std::memcpy(&pointers[i], bytes.data() + offset, sizeof(pointers[i]));
+      offset += sizeof(pointers[i]);
+    }
   }
 
   bool Node::getIsLeaf()

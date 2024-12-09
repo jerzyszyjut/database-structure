@@ -4,8 +4,31 @@
 
 namespace sbd
 {
-  Tree::Tree() : nodes(), rootIndex(0)
+  void Tree::saveNodeToFile(sbd::Node node)
   {
+    treeFile.seekp(node.getId() * sbd::NODE_SIZE);
+    std::array<char, sbd::NODE_SIZE> bytes = node.toBytes();
+    treeFile.write(bytes.data(), sbd::NODE_SIZE);
+
+    if (treeFile.fail())
+    {
+      throw std::runtime_error("Error writing to file");
+    }
+  }
+
+  sbd::Node Tree::readNodeFromFile(std::int32_t index)
+  {
+    treeFile.seekg(index * sbd::NODE_SIZE);
+    std::array<char, sbd::NODE_SIZE> bytes;
+    treeFile.read(bytes.data(), sbd::NODE_SIZE);
+    sbd::Node node;
+    node.fromBytes(bytes);
+    return node;
+  }
+
+  Tree::Tree() : rootIndex(0)
+  {
+    treeFile.open(sbd::TREE_FILE_NAME, std::fstream::in | std::fstream::out | std::fstream::binary | std::fstream::trunc);
     sbd::Node root = sbd::Node();
     root.setParentIndex(-1);
     root.setIsLeaf(true);
@@ -15,19 +38,23 @@ namespace sbd
 
   Tree::~Tree()
   {
+    if (treeFile.is_open())
+    {
+      treeFile.close();
+    }
   }
 
-  std::int32_t Tree::search(std::int32_t key)
+  std::int32_t Tree::search(float key)
   {
     if (getNode(rootIndex).getSize() == 0)
       return -1;
     return search(rootIndex, key);
   }
 
-  std::int32_t Tree::search(std::int32_t nodeIndex, std::int32_t key)
+  std::int32_t Tree::search(std::int32_t nodeIndex, float key)
   {
     std::int32_t i = 0;
-    sbd::Node &node = getNode(nodeIndex);
+    sbd::Node node = getNode(nodeIndex);
 
     while (i < node.getSize() && key > node.getKey(i))
       ++i;
@@ -40,12 +67,12 @@ namespace sbd
       return search(node.getPointer(i), key);
   }
 
-  std::int32_t Tree::insert(std::int32_t key, std::int32_t address)
+  std::int32_t Tree::insert(float key, std::int32_t address)
   {
     return insert(rootIndex, key, address);
   }
 
-  std::int32_t Tree::insert(std::int32_t nodeIndex, std::int32_t key, std::int32_t address)
+  std::int32_t Tree::insert(std::int32_t nodeIndex, float key, std::int32_t address)
   {
     sbd::Node node = getNode(nodeIndex);
     std::int32_t i = 0;
@@ -87,7 +114,7 @@ namespace sbd
     }
   }
 
-  bool Tree::tryCompensate(std::int32_t mainIndex, std::int32_t key)
+  bool Tree::tryCompensate(std::int32_t mainIndex, float key)
   {
     sbd::Node main = getNode(mainIndex);
 
@@ -111,7 +138,7 @@ namespace sbd
       sbd::Node left = (leftNeighborIndex != -1) ? getNode(leftNeighborIndex) : main;
       sbd::Node right = (leftNeighborIndex != -1) ? main : getNode(rightNeighborIndex);
 
-      std::array<std::tuple<std::int32_t, std::int32_t>, MAX_RECORDS * 2> allRecords;
+      std::array<std::tuple<float, std::int32_t>, MAX_RECORDS * 2> allRecords;
       std::array<std::int32_t, MAX_POINTERS * 2> allPointers;
       std::int32_t allSize = 0;
 
@@ -137,11 +164,6 @@ namespace sbd
 
       std::int32_t split = allSize / 2;
 
-      // leftNeighborIndex = (leftNeighborIndex != -1) ? leftNeighborIndex : mainIndex;
-      // rightNeighborIndex = (rightNeighborIndex != -1) ? rightNeighborIndex : mainIndex;
-      // sbd::Node &left = nodes[leftNeighborIndex];
-      // sbd::Node &right = nodes[rightNeighborIndex];
-
       left.setSize(0);
       for (auto j = 0; j < split; ++j)
       {
@@ -152,9 +174,6 @@ namespace sbd
       left.setPointer(allPointers[split], left.getSize());
 
       parent.setRecord(allRecords[split], i - 1);
-      // parent.setPointer(leftNeighborIndex, i - 1);
-      // parent.setPointer(rightNeighborIndex, i);
-
       right.setSize(0);
       for (auto j = split + 1; j < allSize; ++j)
       {
@@ -189,7 +208,6 @@ namespace sbd
       if (!node.getIsLeaf())
       {
         newNode.setPointer(node.getPointer(i), j);
-        // getNode(node.getPointer(i)).parentIndex = getNextNodeIndex();
         sbd::Node child = getNode(node.getPointer(i));
         child.setParentIndex(getNextNodeIndex());
         updateNode(child);
@@ -199,7 +217,6 @@ namespace sbd
     if (!node.getIsLeaf())
     {
       newNode.setPointer(node.getPointer(node.getSize()), newNode.getSize());
-      // getNode(node.getPointer(node.getSize())).parentIndex = getNextNodeIndex();
       sbd::Node last = getNode(node.getPointer(node.getSize()));
       last.setParentIndex(getNextNodeIndex());
       updateNode(last);
@@ -256,15 +273,18 @@ namespace sbd
     }
   }
 
-  sbd::Node &Tree::getNode(std::int32_t index)
+  sbd::Node Tree::getNode(std::int32_t index)
   {
-    if (index >= nodes.size() || index < 0)
+    if (index >= currentIndex || index < 0)
       throw std::runtime_error("Index out of bounds");
 
     if (index == rootIndex)
       return rootNode;
 
-    return nodes[index];
+    sbd::Node node = readNodeFromFile(index);
+    node.setId(index, false);
+    return node;
+    // return nodes[index];
   }
 
   std::int32_t Tree::updateNode(sbd::Node &node)
@@ -273,30 +293,27 @@ namespace sbd
       return node.getId();
 
     node.cleanNode();
-    for (auto i = 0; i < nodes.size(); ++i)
+
+    if (node.getId() == -1)
     {
-      if (nodes[i].getId() == node.getId())
-      {
-        nodes[i] = node;
-        if (node.getParentIndex() == -1)
-          rootNode = node;
-        return i;
-      }
+      node.setId(getNextNodeIndex());
+      currentIndex++;
     }
 
-    node.setId(getNextNodeIndex());
     node.cleanNode();
 
     if (node.getParentIndex() == -1)
       rootNode = node;
 
-    nodes.push_back(node);
+    saveNodeToFile(node);
+    // nodes.push_back(node);
     return node.getId();
   }
 
   std::int32_t Tree::getNextNodeIndex()
   {
-    return nodes.size();
+    return currentIndex;
+    // return nodes.size();
   }
 
   void Tree::createDotFile(std::string filename)
@@ -305,9 +322,9 @@ namespace sbd
     file << "digraph G {" << std::endl;
     file << "node [shape=record];" << std::endl;
 
-    for (auto i = 0; i < nodes.size(); ++i)
+    for (auto i = 0; i < currentIndex; ++i)
     {
-      auto &node = getNode(i);
+      auto node = getNode(i);
       file << "node" << i << "[label=\"";
       for (auto i = 0; i < node.getSize(); ++i)
       {
@@ -332,7 +349,7 @@ namespace sbd
 
   void Tree::createDotFile(std::ofstream &file, std::int32_t nodeIndex)
   {
-    auto &node = getNode(nodeIndex);
+    auto node = getNode(nodeIndex);
     if (!node.getIsLeaf())
     {
       for (auto i = 0; i <= node.getSize(); ++i)
@@ -344,7 +361,7 @@ namespace sbd
         }
       }
     }
-    // file << "\"node" << nodeIndex << "\"" << " -> \"node" << node.parentIndex << "\"" << std::endl;
+    // file << "\"node" << nodeIndex << "\"" << " -> \"node" << node.getParentIndex() << "\"" << std::endl;
   }
 
 } // namespace sbd

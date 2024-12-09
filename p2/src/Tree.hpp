@@ -10,21 +10,23 @@ namespace sbd
   class Tree
   {
   private:
-    std::vector<Node> nodes;
     std::int32_t rootIndex;
     sbd::Node rootNode;
-    std::ofstream file;
+    std::fstream treeFile;
+    std::int32_t currentIndex = 0;
+    void saveNodeToFile(sbd::Node node);
+    sbd::Node readNodeFromFile(std::int32_t index);
 
   public:
     Tree();
     ~Tree();
-    std::int32_t search(std::int32_t key);
-    std::int32_t search(std::int32_t nodeIndex, std::int32_t key);
-    std::int32_t insert(std::int32_t key, std::int32_t address);
-    std::int32_t insert(std::int32_t nodeIndex, std::int32_t key, std::int32_t address);
-    bool tryCompensate(std::int32_t mainIndex, std::int32_t split);
+    std::int32_t search(float key);
+    std::int32_t search(std::int32_t nodeIndex, float key);
+    std::int32_t insert(float key, std::int32_t address);
+    std::int32_t insert(std::int32_t nodeIndex, float key, std::int32_t address);
+    bool tryCompensate(std::int32_t mainIndex, float key);
     void split(std::int32_t nodeIndex);
-    sbd::Node &getNode(std::int32_t index);
+    sbd::Node getNode(std::int32_t index);
     std::int32_t updateNode(sbd::Node &node);
     std::int32_t getNextNodeIndex();
     void createDotFile(std::string filename);
