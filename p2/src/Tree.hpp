@@ -12,6 +12,7 @@ namespace sbd
   private:
     std::vector<Node> nodes;
     std::int32_t rootIndex;
+    sbd::Node rootNode;
     std::ofstream file;
 
   public:

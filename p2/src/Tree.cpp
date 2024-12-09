@@ -260,6 +260,10 @@ namespace sbd
   {
     if (index >= nodes.size() || index < 0)
       throw std::runtime_error("Index out of bounds");
+
+    if (index == rootIndex)
+      return rootNode;
+
     return nodes[index];
   }
 
@@ -268,16 +272,24 @@ namespace sbd
     if (!node.isDirty())
       return node.getId();
 
+    node.cleanNode();
     for (auto i = 0; i < nodes.size(); ++i)
     {
       if (nodes[i].getId() == node.getId())
       {
         nodes[i] = node;
+        if (node.getParentIndex() == -1)
+          rootNode = node;
         return i;
       }
     }
+
     node.setId(getNextNodeIndex());
     node.cleanNode();
+
+    if (node.getParentIndex() == -1)
+      rootNode = node;
+
     nodes.push_back(node);
     return node.getId();
   }
