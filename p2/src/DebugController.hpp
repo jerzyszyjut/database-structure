@@ -11,7 +11,7 @@ namespace sbd
   class DebugController
   {
   private:
-    bool printAfterEachAction = true;
+    bool printAfterEachAction = false;
     Tree *tree;
 
   public:
@@ -71,7 +71,7 @@ namespace sbd
       std::random_device rd;
       std::mt19937 gen(rd());
       gen.seed(1930641);
-      std::uniform_real_distribution<> dis(1.0, 100.0);
+      std::uniform_real_distribution<> dis(1.0, 1000000.0);
       // std::ofstream file = std::ofstream(sbd::INPUT_FILE_NAME);
       for (auto i = 0; i < randomCount; ++i)
       {
@@ -100,6 +100,8 @@ namespace sbd
     {
       std::cout << "Reads: " << sbd::Counters::getInstance().getReadCounter() << std::endl;
       std::cout << "Writes: " << sbd::Counters::getInstance().getWriteCounter() << std::endl;
+      std::cout << "Tree height: " << tree->getHeight() << std::endl;
+      std::cout << "Memory usage ratio: " << tree->getMemoryUsageRatio() << std::endl;
     }
 
     void executeInstructionsFromFile()

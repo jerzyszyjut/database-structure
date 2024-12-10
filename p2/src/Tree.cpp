@@ -390,4 +390,44 @@ namespace sbd
     // file << "\"node" << nodeIndex << "\"" << " -> \"node" << node.getParentIndex() << "\"" << std::endl;
   }
 
+  std::int32_t Tree::getHeight()
+  {
+    return getHeight(rootNode);
+  }
+
+  std::int32_t Tree::getHeight(sbd::Node node)
+  {
+    if (node.getIsLeaf())
+      return 1;
+
+    sbd::Node child = getNode(node.getPointer(0));
+
+    return getHeight(child) + 1;
+  }
+
+  float Tree::getMemoryUsageRatio()
+  {
+    auto ratio = getMemoryUsageRatio(rootNode);
+    return (float)std::get<0>(ratio) / std::get<1>(ratio);
+  }
+
+  std::tuple<std::int32_t, std::int32_t> Tree::getMemoryUsageRatio(sbd::Node node)
+  {
+    std::int32_t memoryUsed = node.getSize();
+    std::int32_t memoryTotal = MAX_RECORDS - 1;
+
+    for (auto i = 0; i <= node.getSize(); ++i)
+    {
+      if (node.getPointer(i) != -1)
+      {
+        sbd::Node child = getNode(node.getPointer(i));
+        auto childRatio = getMemoryUsageRatio(child);
+        memoryUsed += std::get<0>(childRatio);
+        memoryTotal += std::get<1>(childRatio);
+      }
+    }
+
+    return std::make_tuple(memoryUsed, memoryTotal);
+  }
+
 } // namespace sbd

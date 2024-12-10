@@ -32,5 +32,9 @@ namespace sbd
     std::int32_t getNextNodeIndex();
     void createDotFile(std::string filename);
     void createDotFile(std::ofstream &file, std::int32_t nodeIndex);
+    std::int32_t getHeight();
+    std::int32_t getHeight(sbd::Node node);
+    float getMemoryUsageRatio();
+    std::tuple<std::int32_t, std::int32_t> getMemoryUsageRatio(sbd::Node node);
   };
 } // namespace sbd
