@@ -6,7 +6,7 @@ namespace sbd
 {
   static constexpr auto TREE_FILE_NAME = "tree.dat";
   static constexpr auto TREE_DOT_FILE_NAME = "tree.dot";
-  static constexpr auto DATA_FILE_NAME = "data.dat";
+  static constexpr auto INPUT_FILE_NAME = "input.txt";
   static constexpr auto D_SIZE = 2;
   static constexpr auto VALUE_SIZE = sizeof(std::int32_t);
   static constexpr auto KEY_SIZE = sizeof(float);

@@ -1,5 +1,6 @@
 #include "Tree.hpp"
 #include "Node.hpp"
+#include "Counter.hpp"
 #include <string>
 
 namespace sbd
@@ -9,7 +10,7 @@ namespace sbd
     treeFile.seekp(node.getId() * sbd::NODE_SIZE);
     std::array<char, sbd::NODE_SIZE> bytes = node.toBytes();
     treeFile.write(bytes.data(), sbd::NODE_SIZE);
-
+    sbd::Counters::getInstance().incrementWrite();
     if (treeFile.fail())
     {
       throw std::runtime_error("Error writing to file");
@@ -23,6 +24,7 @@ namespace sbd
     treeFile.read(bytes.data(), sbd::NODE_SIZE);
     sbd::Node node;
     node.fromBytes(bytes);
+    sbd::Counters::getInstance().incrementRead();
     return node;
   }
 
