@@ -70,12 +70,15 @@ namespace sbd
     {
       std::random_device rd;
       std::mt19937 gen(rd());
-      gen.seed(193064);
+      gen.seed(1930641);
       std::uniform_real_distribution<> dis(1.0, 100.0);
+      // std::ofstream file = std::ofstream(sbd::INPUT_FILE_NAME);
       for (auto i = 0; i < randomCount; ++i)
       {
+        // file << floorf(dis(gen) * 10) / 10 << " " << i << std::endl;
         tree->insert(floorf(dis(gen) * 10) / 10, i);
       }
+      // file.close();
       breakpoint();
     }
 

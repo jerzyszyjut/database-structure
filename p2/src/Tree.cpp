@@ -172,6 +172,18 @@ namespace sbd
         left.setSize(left.getSize() + 1);
         left.setRecord(allRecords[j], j);
         left.setPointer(allPointers[j], j);
+        if (!left.getIsLeaf())
+        {
+          sbd::Node child = getNode(allPointers[j]);
+          child.setParentIndex(left.getId());
+          updateNode(child);
+        }
+      }
+      if (!left.getIsLeaf())
+      {
+        sbd::Node child = getNode(allPointers[split]);
+        child.setParentIndex(left.getId());
+        updateNode(child);
       }
       left.setPointer(allPointers[split], left.getSize());
 
@@ -182,8 +194,20 @@ namespace sbd
         right.setSize(right.getSize() + 1);
         right.setRecord(allRecords[j], right.getSize() - 1);
         right.setPointer(allPointers[j], right.getSize() - 1);
+        if (!right.getIsLeaf())
+        {
+          sbd::Node child = getNode(allPointers[j]);
+          child.setParentIndex(right.getId());
+          updateNode(child);
+        }
       }
       right.setPointer(allPointers[allSize], right.getSize());
+      if (!right.getIsLeaf())
+      {
+        sbd::Node child = getNode(allPointers[allSize]);
+        child.setParentIndex(right.getId());
+        updateNode(child);
+      }
 
       updateNode(left);
       updateNode(right);
